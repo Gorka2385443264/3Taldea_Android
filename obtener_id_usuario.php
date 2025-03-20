@@ -3,7 +3,7 @@ header('Content-Type: application/json');
 
 // Configuración de la base de datos
 $host = "localhost:3306";
-$dbname = '5_erronka1';
+$dbname = 'talde3';
 $username = 'root';
 $password = '1WMG2023';
 
