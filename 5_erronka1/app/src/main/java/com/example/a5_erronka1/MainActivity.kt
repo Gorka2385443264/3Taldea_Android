@@ -54,6 +54,8 @@ import org.json.JSONArray
 import java.io.File
 import java.io.FileOutputStream
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.draw.clip
@@ -72,7 +74,7 @@ class MainActivity : ComponentActivity() {
     var username:String = ""
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
+        setContent {//HOLA
             _5_erronka1Theme {
                 val navController = rememberNavController() // Inicializar el controlador de navegación
                 NavHost(navController = navController, startDestination = "pantallaPrincipal") {
@@ -182,7 +184,7 @@ fun PantallaPrincipal(navController: NavController) {
                 painter = painterResource(id = R.drawable.saboreame),
                 contentDescription = "Logo de la empresa",
                 modifier = Modifier
-                    .size(350.dp)
+                    .size(400.dp)
                     .padding(bottom = 32.dp)
             )
 
@@ -485,74 +487,85 @@ fun PantallaMapa(navController: NavController, username: String) {
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
         )
+
         // Contenido de la pantalla
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 64.dp), // Dejar espacio para el botón Volver
+                .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.saboreame),
-                contentDescription = "Logo de la empresa",
+            // FILA CON EL LOGO Y EL MENSAJE
+            Row(
                 modifier = Modifier
-                    .size(150.dp)
-                    .padding(bottom = 16.dp)
-            )
-
-            Text(
-                text = "Kaixo $username!",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-
-            Text(
-                text = "Aukeratu mahaia",
-                fontSize = 18.sp,
-                color = Color.Black,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
-
-            Button(
-                onClick = {
-                    if (selectedMesa != null) {
-                        Log.d("Navigation", "Username: $username, Mesa: $selectedMesa")
-                        navController.navigate("pantallaMenu/$username/$selectedMesa")
-                    } else {
-                        Toast.makeText(
-                            navController.context,
-                            "Por favor, selecciona una mesa antes de continuar.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                },
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                // Logo más grande
+                Image(
+                    painter = painterResource(id = R.drawable.saboreame),
+                    contentDescription = "Logo de la empresa",
+                    modifier = Modifier
+                        .size(150.dp) // Aumentar tamaño
+                        .padding(start = 8.dp)
+                )
+
+                Spacer(modifier = Modifier.weight(1f)) // Para centrar el texto
+                Text(
+                    text = "Kaixo $username!",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 28.dp)
+                        .padding(bottom = 16.dp)
+                        .wrapContentWidth(Alignment.CenterHorizontally)
+                )
             }
 
+            // Texto que muestra el número de mesa seleccionado
+            if (selectedMesa != null) {
+                Text(
+                    text = "Mesa seleccionada: $selectedMesa",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.Black,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            } else {
+                Text(
+                    text = "No se ha seleccionado mesa aún",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.Black,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
 
-
-            MapaDeMesas(selectedMesa, mesas) { mesaNumero ->
-                selectedMesa = mesaNumero
+            // Aquí colocamos la imagen de mapeo que ocupará el espacio entre el logo y los botones
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f) // Ocupa todo el espacio disponible entre el logo y los botones
+            ) {
+                MapaDeMesas(selectedMesa, mesas) { mesaNumero ->
+                    selectedMesa = mesaNumero
+                }
             }
         }
 
-        // Botón Volver y Txat en la parte inferior
+        // Botones abajo
         Row(
             modifier = Modifier
-                .align(Alignment.BottomStart) // Alineación a la izquierda en la parte inferior
+                .align(Alignment.BottomStart) // Alineación en la parte inferior izquierda
                 .padding(16.dp)
         ) {
-            // Botón Volver
+            // Botón "Atzera" a la izquierda
             Button(
-                onClick = {
-                    navController.navigate("segundaPantalla")
-                },
+                onClick = { navController.navigate("segundaPantalla") },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
             ) {
                 Text(text = "Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -560,19 +573,38 @@ fun PantallaMapa(navController: NavController, username: String) {
 
             Spacer(modifier = Modifier.width(16.dp)) // Espacio entre los botones
 
-            // Botón Txat
+            // Botón "Txat" a la derecha del "Atzera"
             Button(
                 onClick = {
                     navController.navigate("pantallaChat?username=$username")
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
-                        modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
+                modifier = Modifier.height(50.dp)
             ) {
                 Text(text = "Txat", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
+        }
 
+        // Botón "Jarraitu" abajo a la derecha
+        Button(
+            onClick = {
+                if (selectedMesa != null) {
+                    navController.navigate("pantallaMenu/$username/$selectedMesa")
+                } else {
+                    Toast.makeText(
+                        navController.context,
+                        "Por favor, selecciona una mesa antes de continuar.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
+            modifier = Modifier
+                .align(Alignment.BottomEnd) // Alineado abajo a la derecha
+                .padding(16.dp)
+        ) {
+            Text(text = "Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -601,11 +633,15 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
             return (baseY * scaleHeight).dp
         }
 
+        // Ajustamos el tamaño de la imagen (puedes modificar los valores de width y height)
         Image(
             painter = painterResource(id = R.drawable.mapeo),
             contentDescription = "Mapa del restaurante",
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .width(700.dp)   // Ancho de 600 dp
+                .height(500.dp)  // Alto de 500 dp
         )
+
 
         mesas.forEach { mesa ->
             val id = mesa["id"] as Int
@@ -616,47 +652,57 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
             }
 
             val color = when (habilitado) {
-                1 -> Color.Transparent
+                1 -> Color.Green
                 0 -> Color.Red
                 else -> Color.Gray
             }
-
-            // Aquí agregamos coordenadas para cada mesa (ajustar según tu mapa)
             val posicionX = when (id) {
-                1 -> 35f
-                2 -> 115f
-                3 -> 185f
-                4 -> 35f
-                5 -> 125f
-                6 -> 35f
-                7 -> 125f
-                8 -> 205f
-                9 -> 35f
-                10 -> 125f
-                11 -> 205f
-                12 -> 85f
-                13 -> 150f
-                14 -> 230f
-                15 -> 310f
+                1 -> 5f
+                2 -> 40f
+                3 -> 75f
+                4 -> 105f
+                5 -> 13f
+                6 -> 42f
+                7 -> 70f
+                8 -> 100f
+                9 -> 81f
+                10 -> 115f
+                11 -> 81f
+                12 -> 115f
+                13 -> 147f
+                14 -> 65f
+                15 -> 98f
+                16 -> 131f
+                17 -> 166f
+                18 -> 197f
+                19 -> 237f
+                20 -> 197f
+                21 -> 237f
                 else -> 0f
             }
-            // 1- 77 | 4-112 | 6-147 | 9 182 | 217 | 252 | 287 | 322
+
             val posicionY = when (id) {
-                1 -> 77f
-                2 -> 77f
-                3 -> 77f
-                4 -> 147f
-                5 -> 147f
-                6 -> 217f
-                7 -> 217f
-                8 -> 217f
-                9 -> 287f
-                10 -> 287f
-                11 -> 287f
-                12 -> 372f
-                13 -> 372f
-                14 -> 372f
-                15 -> 372f
+                1 -> 70f
+                2 -> 70f
+                3 -> 70f
+                4 -> 70f
+                5 -> 177f
+                6 -> 177f
+                7 -> 177f
+                8 -> 177f
+                9 -> 280f
+                10 -> 280f
+                11 -> 380f
+                12 -> 380f
+                13 -> 380f
+                14 -> 475f
+                15 -> 475f
+                16 -> 475f
+                17 -> 475f
+                18 -> 375f
+                19 -> 375f
+                20 -> 475f
+                21 -> 475f
                 else -> 0f
             }
 
@@ -673,7 +719,6 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
                 color = color
             )
         }
-
     }
 }
 
@@ -687,12 +732,21 @@ fun MesaInteractiva(
 ) {
     Box(
         modifier = modifier
-            .size(35.dp)
-            .background(color)
-            .clickable(enabled = color == Color.Transparent) { // Solo habilitada si es verde
+            .size(40.dp)  // Aumentado el tamaño
+            .background(color, shape = RoundedCornerShape(4.dp)) // Bordes redondeados
+            .border(BorderStroke(2.dp, Color.Black), shape = RoundedCornerShape(4.dp)) // Borde negro
+            .clickable(enabled = color == Color.Green) { // Solo seleccionable si está habilitado
                 onMesaClicked(mesaNumero)
-            }
-    )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = mesaNumero.toString(),
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
 }
 
 fun obtenerEstadoMesas(navController: NavController, onMesasRecibidas: (List<Map<String, Any>>) -> Unit) {
@@ -800,8 +854,8 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                     "id" to item.getInt("id"),
                                     "izena" to item.getString("izena"),
                                     "prezioa" to item.getString("prezioa"),
-                                    "kantidadea" to item.optInt("kantidadea", 0),
-                                    "platera_mota" to item.optString("platera_mota", "Categoría desconocida"),
+                                    "kantitatea" to item.optInt("kantitatea", 0),
+                                    "kategoria" to item.optString("kategoria", "Categoría desconocida"),
                                     "deskribapena" to item.getString("deskribapena")
                                 )
                                 items.add(plato)
@@ -872,9 +926,9 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                 Text(text = "Ez dago informazioarik", color = Color.Black)
             } else {
                 LazyColumn(modifier = Modifier.weight(1f)) {
-                    val categoriasOrdenadas = listOf("Edaria", "Lehen_Platera", "Bigarren_Platera", "Postrea")
+                    val categoriasOrdenadas = listOf("Edaria", "Lehenengo platera", "Bigarren platera", "Postrea")
                     val categorias = platos.groupBy {
-                        (it["platera_mota"] as? String) ?: "Categoría desconocida"
+                        (it["kategoria"] as? String) ?: "Categoría desconocida"
                     }.toSortedMap(compareBy { categoriasOrdenadas.indexOf(it).takeIf { it != -1 } ?: Int.MAX_VALUE })
 
                     categorias.forEach { (categoria, platosDeCategoria) ->
@@ -891,7 +945,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                             val nombrePlato = plato["izena"] as String
                             val precioPlato = plato["prezioa"] as String
                             val descripcion = plato["deskribapena"] as String
-                            val cantidadMaxima = plato["kantidadea"] as Int
+                            val cantidadMaxima = plato["kantitatea"] as Int
                             val cantidadActual = cantidades[nombrePlato] ?: 0
                             val platoId = plato["id"] as? Int ?: -1
                             var showPopup by remember { mutableStateOf(false) }
@@ -921,7 +975,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
                                         text = nombrePlato,
-                                        color = Color.White,
+                                        color = Color.Black,
                                         fontSize = 16.sp,
                                         maxLines = 2,
                                         overflow = TextOverflow.Ellipsis,
@@ -935,19 +989,19 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                         Icon(
                                             imageVector = Icons.Default.Search,
                                             contentDescription = "Ver descripción",
-                                            tint = Color.White
+                                            tint = Color.Black
                                         )
                                     }
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(text = "$precioPlato€", color = Color.White, fontSize = 16.sp)
+                                    Text(text = "$precioPlato€", color = Color.Black, fontSize = 16.sp)
 
                                     Spacer(modifier = Modifier.width(8.dp))
 
                                     Text(
                                         text = "Cnt: $cantidadActual",
-                                        color = Color.White,
+                                        color = Color.Black,
                                         fontSize = 16.sp
                                     )
 
@@ -1073,12 +1127,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
 }
 
 @Composable
-fun PantallaFactura(
-    navController: NavController,
-    selectedItems: List<Map<String, Any>>,
-    username: String,
-    mesaSeleccionada: String
-) {
+fun PantallaFactura(navController: NavController, selectedItems: List<Map<String, Any>>, username: String, mesaSeleccionada: String) {
     val langileaId = remember { mutableStateOf<Int?>(null) }
     val showDialog = remember { mutableStateOf(false) }
     val noteDialogState = remember { mutableStateOf(false) }
@@ -1138,8 +1187,8 @@ fun PantallaFactura(
                             Text("ID", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.5f))
                             Text("Izena", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
                             Text("Kant", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.5f))
-                            Text("Prezioa", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Text("Notak", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("Prezioa", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("Notak", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         }
                     }
                     itemsIndexed(mutableSelectedItems.value) { index, plato ->
@@ -1277,12 +1326,7 @@ fun PantallaFactura(
     }
 }
 
-fun insertarComandaEnBBDD(
-    langileaId: Int,
-    mesaSeleccionada: String,
-    mutableSelectedItems: List<Map<String, Any>>,
-    onResult: (Boolean) -> Unit
-) {
+fun insertarComandaEnBBDD(langileaId: Int,mesaSeleccionada: String,mutableSelectedItems: List<Map<String, Any>>,onResult: (Boolean) -> Unit) {
     val client = OkHttpClient()
     val url = "http://10.0.2.2/insertar_comanda.php"
 
