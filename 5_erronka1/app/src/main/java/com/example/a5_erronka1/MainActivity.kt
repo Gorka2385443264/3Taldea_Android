@@ -662,24 +662,24 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
                 1 -> 5f
                 2 -> 40f
                 3 -> 75f
-                4 -> 105f
-                5 -> 13f
-                6 -> 42f
-                7 -> 70f
-                8 -> 100f
-                9 -> 81f
-                10 -> 115f
-                11 -> 81f
-                12 -> 115f
-                13 -> 147f
-                14 -> 65f
-                15 -> 98f
-                16 -> 131f
-                17 -> 166f
-                18 -> 197f
-                19 -> 237f
-                20 -> 197f
-                21 -> 237f
+                //4 -> 105f
+                4 -> 13f
+                5 -> 42f
+                6 -> 70f
+                7 -> 100f
+                //9 -> 81f
+                //10 -> 115f
+                8 -> 81f
+                9 -> 115f
+                //13 -> 147f
+                10 -> 65f
+                11 -> 98f
+                12 -> 131f
+                //17 -> 166f
+                13 -> 197f
+                14 -> 237f
+                15 -> 197f
+                16 -> 237f
                 else -> 0f
             }
 
@@ -687,24 +687,24 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
                 1 -> 70f
                 2 -> 70f
                 3 -> 70f
-                4 -> 70f
+                //4 -> 70f
+                4 -> 177f
                 5 -> 177f
                 6 -> 177f
                 7 -> 177f
-                8 -> 177f
-                9 -> 280f
-                10 -> 280f
-                11 -> 380f
-                12 -> 380f
-                13 -> 380f
-                14 -> 475f
+               // 9 -> 280f
+                //10 -> 280f
+                8 -> 380f
+                9 -> 380f
+                //13 -> 380f
+                10 -> 475f
+                11 -> 475f
+                12 -> 475f
+               // 17 -> 475f
+                13 -> 375f
+                14 -> 375f
                 15 -> 475f
                 16 -> 475f
-                17 -> 475f
-                18 -> 375f
-                19 -> 375f
-                20 -> 475f
-                21 -> 475f
                 else -> 0f
             }
 
@@ -1214,7 +1214,7 @@ fun PantallaFactura(navController: NavController, selectedItems: List<Map<String
                             Text("(x$cantidad)", color = Color.Black, fontSize = 16.sp, modifier = Modifier.weight(0.5f))
                             Text("${precio}€", color = Color.Black, fontSize = 16.sp, modifier = Modifier.weight(1f))
                             Button(
-                                onClick = { 
+                                onClick = {
                                     // Aseguramos de actualizar correctamente el índice
                                     currentItemIndex.value = index
                                     currentNote.value = nota
