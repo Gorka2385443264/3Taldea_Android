@@ -265,7 +265,9 @@ fun PantallaChat(izena: String, navController: NavController) {
                         modifier = Modifier
                             .padding(8.dp)
                             .background(
-                                color = if (sender.trim() == izena.trim()) Color(0xFFADD8E6) else Color(0xFFD3D3D3),
+                                color = if (sender.trim() == izena.trim()) Color(0xFFADD8E6) else Color(
+                                    0xFFD3D3D3
+                                ),
                                 shape = RoundedCornerShape(8.dp)
                             )
                             .padding(10.dp)
@@ -734,7 +736,10 @@ fun MesaInteractiva(
         modifier = modifier
             .size(40.dp)  // Aumentado el tamaño
             .background(color, shape = RoundedCornerShape(4.dp)) // Bordes redondeados
-            .border(BorderStroke(2.dp, Color.Black), shape = RoundedCornerShape(4.dp)) // Borde negro
+            .border(
+                BorderStroke(2.dp, Color.Black),
+                shape = RoundedCornerShape(4.dp)
+            ) // Borde negro
             .clickable(enabled = color == Color.Green) { // Solo seleccionable si está habilitado
                 onMesaClicked(mesaNumero)
             },
@@ -1209,7 +1214,7 @@ fun PantallaFactura(navController: NavController, selectedItems: List<Map<String
                             Text("(x$cantidad)", color = Color.Black, fontSize = 16.sp, modifier = Modifier.weight(0.5f))
                             Text("${precio}€", color = Color.Black, fontSize = 16.sp, modifier = Modifier.weight(1f))
                             Button(
-                                onClick = {
+                                onClick = { 
                                     // Aseguramos de actualizar correctamente el índice
                                     currentItemIndex.value = index
                                     currentNote.value = nota
@@ -1242,12 +1247,18 @@ fun PantallaFactura(navController: NavController, selectedItems: List<Map<String
 
             Button(
                 onClick = {
+                    Log.d("PantallaFactura", "Botón 'Jarraitu' pulsado")  // Log para verificar si se presiona el botón
+
                     langileaId.value?.let {
                         if (mesaSeleccionada.isNotEmpty() && mutableSelectedItems.value.isNotEmpty()) {
+                            Log.d("PantallaFactura", "Datos enviados: langileaId=$it, mesaSeleccionada=$mesaSeleccionada, items=${mutableSelectedItems.value.size}")
+
                             insertarComandaEnBBDD(it, mesaSeleccionada, mutableSelectedItems.value) { success ->
                                 if (success) {
+                                    Log.d("PantallaFactura", "Comanda insertada correctamente")
                                     showDialog.value = true
                                 } else {
+                                    Log.e("PantallaFactura", "Error al insertar la comanda")
                                     Toast.makeText(context, "Error al insertar la comanda", Toast.LENGTH_SHORT).show()
                                 }
                             }
@@ -1260,6 +1271,8 @@ fun PantallaFactura(navController: NavController, selectedItems: List<Map<String
             ) {
                 Text(text = "Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
+
+
         }
 
         if (noteDialogState.value) {
@@ -1326,24 +1339,34 @@ fun PantallaFactura(navController: NavController, selectedItems: List<Map<String
     }
 }
 
-fun insertarComandaEnBBDD(langileaId: Int,mesaSeleccionada: String,mutableSelectedItems: List<Map<String, Any>>,onResult: (Boolean) -> Unit) {
+fun insertarComandaEnBBDD(
+    langileaId: Int,
+    mesaSeleccionada: String,
+    mutableSelectedItems: List<Map<String, Any>>,
+    onResult: (Boolean) -> Unit
+) {
     val client = OkHttpClient()
     val url = "http://10.0.2.2/insertar_comanda.php"
 
     val jsonBody = JSONObject().apply {
-        put("langilea_id", langileaId)
-        put("mahaila_id", mesaSeleccionada.toIntOrNull() ?: 0)
+        put("mesa_id", mesaSeleccionada.toIntOrNull() ?: 0)
+        // Se elimina eskaeraZenb ya que el PHP lo generará automáticamente
+
         put("platera_items", JSONArray().apply {
             mutableSelectedItems.forEach { item ->
                 put(JSONObject().apply {
                     put("platera_id", item["id"] as? Int ?: 0)
-                    put("nota", item["nota"] as? String ?: "") // Asegúrate de enviar la nota
-                    put("cantidad", item["cantidad"] as? Int ?: 1) // Asegúrate de enviar la cantidad
-                    put("ateratze_ordua", item["ateratze_ordua"] as? String ?: JSONObject.NULL)
+                    put("izena", item["nombre"] as? String ?: "") // Enviar el nombre del plato como 'izena'
+                    put("nota", item["nota"] as? String ?: "")
+                    put("cantidad", item["cantidad"] as? Int ?: 1)
+                    put("precio", item["precio"] as? Float ?: 0.0f)
                 })
             }
         })
+
     }
+
+    Log.d("insertarComandaEnBBDD", "Cuerpo JSON a enviar: ${jsonBody.toString()}")  // Log del JSON enviado
 
     val requestBody = RequestBody.create(
         "application/json; charset=utf-8".toMediaType(),
@@ -1357,6 +1380,7 @@ fun insertarComandaEnBBDD(langileaId: Int,mesaSeleccionada: String,mutableSelect
 
     client.newCall(request).enqueue(object : Callback {
         override fun onFailure(call: Call, e: IOException) {
+            Log.e("insertarComandaEnBBDD", "Error en la llamada: ${e.message}")
             onResult(false)
         }
 
@@ -1364,16 +1388,20 @@ fun insertarComandaEnBBDD(langileaId: Int,mesaSeleccionada: String,mutableSelect
             response.use {
                 if (response.isSuccessful) {
                     val responseBody = response.body?.string() ?: ""
+                    Log.d("insertarComandaEnBBDD", "Respuesta del servidor: $responseBody")  // Log de la respuesta
                     val jsonResponse = JSONObject(responseBody)
                     val success = jsonResponse.optBoolean("success", false)
                     onResult(success)
                 } else {
+                    Log.e("insertarComandaEnBBDD", "Error en la respuesta: ${response.message}")
                     onResult(false)
                 }
             }
         }
     })
 }
+
+
 
 suspend fun obtenerIdUsuario(username: String): Int? {
     return withContext(Dispatchers.IO) {
