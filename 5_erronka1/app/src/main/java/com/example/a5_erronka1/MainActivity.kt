@@ -71,12 +71,12 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
-    var username: String = ""
+    var username:String = ""
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
+        setContent {//HOLA
             _5_erronka1Theme {
-                val navController = rememberNavController()
+                val navController = rememberNavController() // Inicializar el controlador de navegación
                 NavHost(navController = navController, startDestination = "pantallaPrincipal") {
                     composable("pantallaPrincipal") {
                         PantallaPrincipal(navController = navController)
@@ -85,25 +85,30 @@ class MainActivity : ComponentActivity() {
                         SegundaPantalla(navController = navController)
                     }
                     composable(
-                        "pantallaMapa?username={username}",
+                        route = "pantallaMapa?username={username}",
                         arguments = listOf(navArgument("username") { defaultValue = "Usuario" })
                     ) { backStackEntry ->
                         val username = backStackEntry.arguments?.getString("username") ?: "Usuario"
                         PantallaMapa(navController = navController, username = username)
                     }
                     composable(
-                        "pantallaMenu/{username}/{mesaSeleccionada}",
+                        route = "pantallaMenu/{username}/{mesaSeleccionada}",
                         arguments = listOf(
                             navArgument("username") { defaultValue = "Usuario" },
                             navArgument("mesaSeleccionada") { defaultValue = "Mesa 1" }
                         )
-                    ) { backStackEntry ->
+                    ){ backStackEntry ->
                         username = backStackEntry.arguments?.getString("username") ?: "Usuario"
-                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
-                        PantallaMenu(navController = navController, username = username, mesaSeleccionada = mesaSeleccionada)
+                        val mesaSeleccionada =
+                            backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
+                        PantallaMenu(
+                            navController = navController,
+                            username = username,
+                            mesaSeleccionada = mesaSeleccionada
+                        )
                     }
                     composable(
-                        "pantallaFactura/{selectedItems}/{username}/{mesaSeleccionada}",
+                        route = "pantallaFactura/{selectedItems}/{username}/{mesaSeleccionada}",
                         arguments = listOf(
                             navArgument("selectedItems") { defaultValue = "" },
                             navArgument("username") { defaultValue = "Usuario" },
@@ -114,39 +119,45 @@ class MainActivity : ComponentActivity() {
                         username = backStackEntry.arguments?.getString("username") ?: "Usuario"
                         val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
 
+                        // Convertir el string de productos seleccionados en una lista de mapas
                         val items = selectedItems.split(";").mapNotNull {
                             val parts = it.split(":")
-                            if (parts.size == 4) {
+                            if (parts.size == 4) { // Ahora tenemos ID, nombre, cantidad y precio
                                 mapOf(
                                     "id" to parts[0].toInt(),
                                     "nombre" to parts[1],
                                     "cantidad" to parts[2].toInt(),
                                     "precio" to parts[3].toFloat()
                                 )
-                            } else null
+                            } else {
+                                null
+                            }
                         }
 
-                        PantallaFactura(navController = navController, selectedItems = items, username = username, mesaSeleccionada = mesaSeleccionada)
+                        // Pasar los productos seleccionados a la pantalla de factura
+                        PantallaFactura(
+                            navController = navController,
+                            selectedItems = items,
+                            username = username,
+                            mesaSeleccionada = mesaSeleccionada
+                        )
                     }
+                    // Pantalla de chat fuera de otro composable
                     composable(
-                        "pantallaChat?username={username}",
+                        route = "pantallaChat?username={username}",
                         arguments = listOf(navArgument("username") { defaultValue = "Usuario" })
                     ) { backStackEntry ->
                         val username = backStackEntry.arguments?.getString("username") ?: "Usuario"
                         PantallaChat(navController = navController, izena = username)
                     }
-                    // ✅ NUEVA PANTALLA EditarMesaScreen
-                    composable(
-                        "editarMesa/{username}/{mesaSeleccionada}",
-                        arguments = listOf(
-                            navArgument("username") { defaultValue = "Usuario" },
-                            navArgument("mesaSeleccionada") { defaultValue = "Mesa 1" }
-                        )
-                    ) { backStackEntry ->
-                        val username = backStackEntry.arguments?.getString("username") ?: "Usuario"
-                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
-                        EditarMesaScreen(navController = navController, username = username, mesaSeleccionada = mesaSeleccionada)
+
+                    composable("pantallaEskaeras/{username}/{mesaSeleccionada}") { backStackEntry ->
+                        val username = backStackEntry.arguments?.getString("username") ?: ""
+                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: ""
+                        NuevaPantallaEskaeras(navController, username, mesaSeleccionada)
                     }
+
+
 
                 }
             }
@@ -339,7 +350,7 @@ fun SegundaPantalla(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
-        // Imagen de fondo
+    // Imagen de fondo
     Image(
         painter = painterResource(id = R.drawable.fondo_the_bull),
         contentDescription = "Fondo",
@@ -350,7 +361,7 @@ fun SegundaPantalla(navController: NavController) {
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-     //   verticalArrangement = Arrangement.Center,
+        //   verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
@@ -467,6 +478,7 @@ fun PantallaMapa(navController: NavController, username: String) {
     var selectedMesa by remember { mutableStateOf<Int?>(null) }
     var mesas by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
 
+    // Cargar el estado de las mesas al cargar la pantalla
     LaunchedEffect(true) {
         obtenerEstadoMesas(navController) { mesasRecibidas ->
             mesas = mesasRecibidas
@@ -486,6 +498,7 @@ fun PantallaMapa(navController: NavController, username: String) {
             contentScale = ContentScale.Crop
         )
 
+        // Contenido de la pantalla
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -493,20 +506,23 @@ fun PantallaMapa(navController: NavController, username: String) {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // FILA CON EL LOGO Y EL MENSAJE
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Logo más grande
                 Image(
                     painter = painterResource(id = R.drawable.saboreame),
                     contentDescription = "Logo de la empresa",
                     modifier = Modifier
-                        .size(150.dp)
+                        .size(150.dp) // Aumentar tamaño
                         .padding(start = 8.dp)
                 )
-                Spacer(modifier = Modifier.weight(1f))
+
+                Spacer(modifier = Modifier.weight(1f)) // Para centrar el texto
                 Text(
                     text = "Kaixo $username!",
                     fontSize = 24.sp,
@@ -520,6 +536,7 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             }
 
+            // Texto que muestra el número de mesa seleccionado
             if (selectedMesa != null) {
                 Text(
                     text = "Mesa seleccionada: $selectedMesa",
@@ -538,10 +555,11 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             }
 
+            // Aquí colocamos la imagen de mapeo que ocupará el espacio entre el logo y los botones
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
+                    .weight(1f) // Ocupa todo el espacio disponible entre el logo y los botones
             ) {
                 MapaDeMesas(selectedMesa, mesas) { mesaNumero ->
                     selectedMesa = mesaNumero
@@ -549,11 +567,13 @@ fun PantallaMapa(navController: NavController, username: String) {
             }
         }
 
+        // Botones abajo
         Row(
             modifier = Modifier
-                .align(Alignment.BottomStart)
+                .align(Alignment.BottomStart) // Alineación en la parte inferior izquierda
                 .padding(16.dp)
         ) {
+            // Botón "Atzera" a la izquierda
             Button(
                 onClick = { navController.navigate("segundaPantalla") },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
@@ -561,8 +581,9 @@ fun PantallaMapa(navController: NavController, username: String) {
                 Text(text = "Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(16.dp)) // Espacio entre los botones
 
+            // Botón "Txat" a la derecha del "Atzera"
             Button(
                 onClick = {
                     navController.navigate("pantallaChat?username=$username")
@@ -574,11 +595,12 @@ fun PantallaMapa(navController: NavController, username: String) {
             }
         }
 
-        // ✅ CAMBIO: botón Jarraitu navega a EditarMesaScreen
+        // Botón "Jarraitu" abajo a la derecha
         Button(
             onClick = {
                 if (selectedMesa != null) {
-                    navController.navigate("editarMesa/$username/Mesa $selectedMesa")
+                    // Redirigir a pantallaEskaeras con el username y selectedMesa
+                    navController.navigate("pantallaEskaeras/$username/$selectedMesa")
                 } else {
                     Toast.makeText(
                         navController.context,
@@ -590,11 +612,12 @@ fun PantallaMapa(navController: NavController, username: String) {
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
             modifier = Modifier
-                .align(Alignment.BottomEnd)
+                .align(Alignment.BottomEnd) // Alineado abajo a la derecha
                 .padding(16.dp)
         ) {
             Text(text = "Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
+
     }
 }
 
@@ -679,7 +702,7 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
                 5 -> 177f
                 6 -> 177f
                 7 -> 177f
-               // 9 -> 280f
+                // 9 -> 280f
                 //10 -> 280f
                 8 -> 380f
                 9 -> 380f
@@ -687,7 +710,7 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
                 10 -> 475f
                 11 -> 475f
                 12 -> 475f
-               // 17 -> 475f
+                // 17 -> 475f
                 13 -> 375f
                 14 -> 375f
                 15 -> 475f
@@ -710,70 +733,6 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
         }
     }
 }
-
-@Composable
-fun EditarMesaScreen(
-    navController: NavController,
-    username: String,
-    mesaSeleccionada: String
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
-            .padding(24.dp) // Más espacioso para tablet
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 24.dp)
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.saboreame),
-                    contentDescription = "Logo",
-                    modifier = Modifier.size(100.dp)
-                )
-                Spacer(modifier = Modifier.width(24.dp))
-                Text(
-                    text = "Kaixo $username, has elegido la mesa $mesaSeleccionada!",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.weight(1f)) // Empuja los botones abajo
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Button(
-                    onClick = {
-                        navController.navigate("pantallaMapa?username=$username")
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Button(
-                    onClick = {
-                        navController.navigate("pantallaMenu/$username/$mesaSeleccionada")
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
 
 @Composable
 fun MesaInteractiva(
@@ -868,6 +827,231 @@ fun obtenerEstadoMesas(navController: NavController, onMesasRecibidas: (List<Map
         }
     }
 }
+
+
+@Composable
+fun NuevaPantallaEskaeras(navController: NavController, username: String, mesaSeleccionada: String) {
+    var eskaeras by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    // Obtener eskaeras al cargar la pantalla
+    LaunchedEffect(Unit) {
+        obtenerEskaerasPorMesa(mesaSeleccionada.toInt()) { success, result ->
+            if (success) {
+                eskaeras = result
+            } else {
+                error = result.firstOrNull()?.get("error") as? String ?: "Error desconocido"
+            }
+            isLoading = false
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF091725))
+            .padding(16.dp)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.fondo_the_bull),
+            contentDescription = "Fondo",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 64.dp),
+            verticalArrangement = Arrangement.Top
+        ) {
+            Text(
+                text = "Eskaeras - Mesa $mesaSeleccionada",
+                fontSize = 24.sp,
+                color = Color.Black,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            when {
+                isLoading -> {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                }
+                error != null -> {
+                    Text(text = error!!, color = Color.Red)
+                }
+                eskaeras.isEmpty() -> {
+                    Text(text = "Ez dago eskaerarik", color = Color.Black)
+                }
+                else -> {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(eskaeras) { eskaera ->
+                            Log.d("EskaeraItem", "Mostrando eskaera: $eskaera") // Verificar los datos de cada eskaera
+                            EskaeraItem(
+                                eskaera = eskaera,
+                                onEditarClick = { eskaeraZenb ->
+                                    navController.navigate("editarEskaera/$eskaeraZenb/$mesaSeleccionada")
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Button(
+                onClick = {
+                    navController.navigate("pantallaMenu/$username/$mesaSeleccionada")
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
+            ) {
+                Text("Eskaera berria sortu", fontSize = 16.sp)
+            }
+        }
+
+        Button(
+            onClick = { navController.popBackStack() },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
+        ) {
+            Text("Atzera")
+        }
+    }
+}
+
+@Composable
+fun EskaeraItem(
+    eskaera: Map<String, Any>,
+    onEditarClick: (Int) -> Unit // recibe eskaeraZenb para saber cuál editar
+) {
+    val eskaeraZenb = eskaera["eskaeraZenb"] as? Int ?: return
+    val platos = eskaera["platos"] as? List<Map<String, Any>> ?: emptyList()
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "EskaeraZenb: $eskaeraZenb",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = Color.Black
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            platos.forEach { plato ->
+                Text(
+                    text = "${plato["izena"]} - ${plato["prezioa"]}€",
+                    color = Color.DarkGray,
+                    fontSize = 16.sp
+                )
+
+                // Mostrar la nota_gehigarriak y eskaeraOrdua si están disponibles
+                plato["nota_gehigarriak"]?.let {
+                    Text(
+                        text = "Nota adicional: $it",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
+                }
+
+                plato["eskaeraOrdua"]?.let {
+                    Text(
+                        text = "Hora de pedido: $it",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = { onEditarClick(eskaeraZenb) },
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Editar")
+            }
+        }
+    }
+}
+
+fun obtenerEskaerasPorMesa(mesaId: Int, callback: (Boolean, List<Map<String, Any>>) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val client = OkHttpClient()
+            val url = "http://10.0.2.2/obtener_eskaeras.php?mesa_id=$mesaId"
+
+            val request = Request.Builder().url(url).get().build()
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            Log.d("EskaeraResponse", "Respuesta del servidor: $responseBody") // Verificar la respuesta del servidor
+
+            if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
+                try {
+                    val jsonResponse = JSONObject(responseBody)
+                    val success = jsonResponse.getBoolean("success")
+
+                    if (success) {
+                        val eskaerasArray = jsonResponse.getJSONArray("eskaeras")
+                        val lista = mutableListOf<Map<String, Any>>()
+
+                        for (i in 0 until eskaerasArray.length()) {
+                            val obj = eskaerasArray.getJSONObject(i)
+                            val platosArray = obj.getJSONArray("platos")
+                            val platos = mutableListOf<Map<String, Any>>()
+
+                            for (j in 0 until platosArray.length()) {
+                                val platoObj = platosArray.getJSONObject(j)
+                                platos.add(
+                                    mapOf(
+                                        "izena" to platoObj.getString("izena"),
+                                        "prezioa" to platoObj.getDouble("prezioa"),
+                                        "nota_gehigarriak" to platoObj.getString("nota_gehigarriak"),
+                                        "eskaeraOrdua" to platoObj.getString("eskaeraOrdua")
+                                    )
+                                )
+                            }
+
+                            lista.add(
+                                mapOf(
+                                    "eskaeraZenb" to obj.getInt("eskaeraZenb"),
+                                    "platos" to platos
+                                )
+                            )
+                        }
+
+                        callback(true, lista)
+                    } else {
+                        val errorMsg = jsonResponse.optString("message", "Errore ezezaguna")
+                        callback(false, listOf(mapOf("error" to errorMsg)))
+                    }
+                } catch (e: Exception) {
+                    Log.d("EskaeraError", "Error al convertir la respuesta a JSON: ${e.localizedMessage}")
+                    callback(false, listOf(mapOf("error" to "Error al procesar los datos")))
+                }
+            } else {
+                callback(false, listOf(mapOf("error" to "Errorea zerbitzariarekin konektatzean")))
+            }
+        } catch (e: Exception) {
+            Log.d("EskaeraError", "Error al obtener las eskaeras: ${e.localizedMessage}")
+            callback(false, listOf(mapOf("error" to (e.localizedMessage ?: "Errore ezezaguna"))))
+        }
+    }
+}
+
+
 
 @Composable
 fun PantallaMenu(navController: NavController, username: String, mesaSeleccionada: String) {
@@ -1452,6 +1636,8 @@ fun insertarComandaEnBBDD(
     })
 }
 
+
+
 suspend fun obtenerIdUsuario(username: String): Int? {
     return withContext(Dispatchers.IO) {
         val client = OkHttpClient()
@@ -1510,19 +1696,6 @@ fun VistaPreviaPantallaMapa() {
         PantallaMapa(navController = rememberNavController(), username = "Juan")
     }
 }
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun EditarMesaScreenPreview() {
-    _5_erronka1Theme {
-        EditarMesaScreen(
-            navController = rememberNavController(),
-            username = "Ane",
-            mesaSeleccionada = "5"
-        )
-    }
-}
-
 
 @Preview(showBackground = true)
 @Composable
