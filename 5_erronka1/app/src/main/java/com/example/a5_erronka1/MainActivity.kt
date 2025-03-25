@@ -69,14 +69,14 @@ import java.io.FileWriter
 import java.io.IOException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
- 
+
 class MainActivity : ComponentActivity() {
-    var username:String = ""
+    var username: String = ""
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {//HOLA
+        setContent {
             _5_erronka1Theme {
-                val navController = rememberNavController() // Inicializar el controlador de navegación
+                val navController = rememberNavController()
                 NavHost(navController = navController, startDestination = "pantallaPrincipal") {
                     composable("pantallaPrincipal") {
                         PantallaPrincipal(navController = navController)
@@ -85,30 +85,25 @@ class MainActivity : ComponentActivity() {
                         SegundaPantalla(navController = navController)
                     }
                     composable(
-                        route = "pantallaMapa?username={username}",
+                        "pantallaMapa?username={username}",
                         arguments = listOf(navArgument("username") { defaultValue = "Usuario" })
                     ) { backStackEntry ->
                         val username = backStackEntry.arguments?.getString("username") ?: "Usuario"
                         PantallaMapa(navController = navController, username = username)
                     }
                     composable(
-                        route = "pantallaMenu/{username}/{mesaSeleccionada}",
+                        "pantallaMenu/{username}/{mesaSeleccionada}",
                         arguments = listOf(
                             navArgument("username") { defaultValue = "Usuario" },
                             navArgument("mesaSeleccionada") { defaultValue = "Mesa 1" }
                         )
-                    ){ backStackEntry ->
+                    ) { backStackEntry ->
                         username = backStackEntry.arguments?.getString("username") ?: "Usuario"
-                        val mesaSeleccionada =
-                            backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
-                        PantallaMenu(
-                            navController = navController,
-                            username = username,
-                            mesaSeleccionada = mesaSeleccionada
-                        )
+                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
+                        PantallaMenu(navController = navController, username = username, mesaSeleccionada = mesaSeleccionada)
                     }
                     composable(
-                        route = "pantallaFactura/{selectedItems}/{username}/{mesaSeleccionada}",
+                        "pantallaFactura/{selectedItems}/{username}/{mesaSeleccionada}",
                         arguments = listOf(
                             navArgument("selectedItems") { defaultValue = "" },
                             navArgument("username") { defaultValue = "Usuario" },
@@ -119,36 +114,38 @@ class MainActivity : ComponentActivity() {
                         username = backStackEntry.arguments?.getString("username") ?: "Usuario"
                         val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
 
-                        // Convertir el string de productos seleccionados en una lista de mapas
                         val items = selectedItems.split(";").mapNotNull {
                             val parts = it.split(":")
-                            if (parts.size == 4) { // Ahora tenemos ID, nombre, cantidad y precio
+                            if (parts.size == 4) {
                                 mapOf(
                                     "id" to parts[0].toInt(),
                                     "nombre" to parts[1],
                                     "cantidad" to parts[2].toInt(),
                                     "precio" to parts[3].toFloat()
                                 )
-                            } else {
-                                null
-                            }
+                            } else null
                         }
 
-                        // Pasar los productos seleccionados a la pantalla de factura
-                        PantallaFactura(
-                            navController = navController,
-                            selectedItems = items,
-                            username = username,
-                            mesaSeleccionada = mesaSeleccionada
-                        )
+                        PantallaFactura(navController = navController, selectedItems = items, username = username, mesaSeleccionada = mesaSeleccionada)
                     }
-                    // Pantalla de chat fuera de otro composable
                     composable(
-                        route = "pantallaChat?username={username}",
+                        "pantallaChat?username={username}",
                         arguments = listOf(navArgument("username") { defaultValue = "Usuario" })
                     ) { backStackEntry ->
                         val username = backStackEntry.arguments?.getString("username") ?: "Usuario"
                         PantallaChat(navController = navController, izena = username)
+                    }
+                    // ✅ NUEVA PANTALLA EditarMesaScreen
+                    composable(
+                        "editarMesa/{username}/{mesaSeleccionada}",
+                        arguments = listOf(
+                            navArgument("username") { defaultValue = "Usuario" },
+                            navArgument("mesaSeleccionada") { defaultValue = "Mesa 1" }
+                        )
+                    ) { backStackEntry ->
+                        val username = backStackEntry.arguments?.getString("username") ?: "Usuario"
+                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
+                        EditarMesaScreen(navController = navController, username = username, mesaSeleccionada = mesaSeleccionada)
                     }
 
                 }
@@ -470,7 +467,6 @@ fun PantallaMapa(navController: NavController, username: String) {
     var selectedMesa by remember { mutableStateOf<Int?>(null) }
     var mesas by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
 
-    // Cargar el estado de las mesas al cargar la pantalla
     LaunchedEffect(true) {
         obtenerEstadoMesas(navController) { mesasRecibidas ->
             mesas = mesasRecibidas
@@ -490,7 +486,6 @@ fun PantallaMapa(navController: NavController, username: String) {
             contentScale = ContentScale.Crop
         )
 
-        // Contenido de la pantalla
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -498,23 +493,20 @@ fun PantallaMapa(navController: NavController, username: String) {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // FILA CON EL LOGO Y EL MENSAJE
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Logo más grande
                 Image(
                     painter = painterResource(id = R.drawable.saboreame),
                     contentDescription = "Logo de la empresa",
                     modifier = Modifier
-                        .size(150.dp) // Aumentar tamaño
+                        .size(150.dp)
                         .padding(start = 8.dp)
                 )
-
-                Spacer(modifier = Modifier.weight(1f)) // Para centrar el texto
+                Spacer(modifier = Modifier.weight(1f))
                 Text(
                     text = "Kaixo $username!",
                     fontSize = 24.sp,
@@ -528,7 +520,6 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             }
 
-            // Texto que muestra el número de mesa seleccionado
             if (selectedMesa != null) {
                 Text(
                     text = "Mesa seleccionada: $selectedMesa",
@@ -547,11 +538,10 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             }
 
-            // Aquí colocamos la imagen de mapeo que ocupará el espacio entre el logo y los botones
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f) // Ocupa todo el espacio disponible entre el logo y los botones
+                    .weight(1f)
             ) {
                 MapaDeMesas(selectedMesa, mesas) { mesaNumero ->
                     selectedMesa = mesaNumero
@@ -559,13 +549,11 @@ fun PantallaMapa(navController: NavController, username: String) {
             }
         }
 
-        // Botones abajo
         Row(
             modifier = Modifier
-                .align(Alignment.BottomStart) // Alineación en la parte inferior izquierda
+                .align(Alignment.BottomStart)
                 .padding(16.dp)
         ) {
-            // Botón "Atzera" a la izquierda
             Button(
                 onClick = { navController.navigate("segundaPantalla") },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
@@ -573,9 +561,8 @@ fun PantallaMapa(navController: NavController, username: String) {
                 Text(text = "Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
-            Spacer(modifier = Modifier.width(16.dp)) // Espacio entre los botones
+            Spacer(modifier = Modifier.width(16.dp))
 
-            // Botón "Txat" a la derecha del "Atzera"
             Button(
                 onClick = {
                     navController.navigate("pantallaChat?username=$username")
@@ -587,11 +574,11 @@ fun PantallaMapa(navController: NavController, username: String) {
             }
         }
 
-        // Botón "Jarraitu" abajo a la derecha
+        // ✅ CAMBIO: botón Jarraitu navega a EditarMesaScreen
         Button(
             onClick = {
                 if (selectedMesa != null) {
-                    navController.navigate("pantallaMenu/$username/$selectedMesa")
+                    navController.navigate("editarMesa/$username/Mesa $selectedMesa")
                 } else {
                     Toast.makeText(
                         navController.context,
@@ -603,7 +590,7 @@ fun PantallaMapa(navController: NavController, username: String) {
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
             modifier = Modifier
-                .align(Alignment.BottomEnd) // Alineado abajo a la derecha
+                .align(Alignment.BottomEnd)
                 .padding(16.dp)
         ) {
             Text(text = "Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -723,6 +710,70 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
         }
     }
 }
+
+@Composable
+fun EditarMesaScreen(
+    navController: NavController,
+    username: String,
+    mesaSeleccionada: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF5F5F5))
+            .padding(24.dp) // Más espacioso para tablet
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 24.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.saboreame),
+                    contentDescription = "Logo",
+                    modifier = Modifier.size(100.dp)
+                )
+                Spacer(modifier = Modifier.width(24.dp))
+                Text(
+                    text = "Kaixo $username, has elegido la mesa $mesaSeleccionada!",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f)) // Empuja los botones abajo
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Button(
+                    onClick = {
+                        navController.navigate("pantallaMapa?username=$username")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = {
+                        navController.navigate("pantallaMenu/$username/$mesaSeleccionada")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
 
 @Composable
 fun MesaInteractiva(
@@ -1401,8 +1452,6 @@ fun insertarComandaEnBBDD(
     })
 }
 
-
-
 suspend fun obtenerIdUsuario(username: String): Int? {
     return withContext(Dispatchers.IO) {
         val client = OkHttpClient()
@@ -1461,6 +1510,19 @@ fun VistaPreviaPantallaMapa() {
         PantallaMapa(navController = rememberNavController(), username = "Juan")
     }
 }
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun EditarMesaScreenPreview() {
+    _5_erronka1Theme {
+        EditarMesaScreen(
+            navController = rememberNavController(),
+            username = "Ane",
+            mesaSeleccionada = "5"
+        )
+    }
+}
+
 
 @Preview(showBackground = true)
 @Composable
