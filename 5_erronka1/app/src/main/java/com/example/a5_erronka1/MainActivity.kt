@@ -39,6 +39,7 @@ import com.example.a5_erronka1.ui.theme._5_erronka1Theme
 import kotlinx.coroutines.Dispatchers
 import org.json.JSONException
 import android.graphics.pdf.PdfDocument
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import androidx.annotation.RequiresApi
@@ -57,10 +58,12 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -155,6 +158,34 @@ class MainActivity : ComponentActivity() {
                         val username = backStackEntry.arguments?.getString("username") ?: ""
                         val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: ""
                         NuevaPantallaEskaeras(navController, username, mesaSeleccionada)
+                    }
+
+                    composable(
+                        route = "editarEskaera/{eskaeraZenb}/{mesaSeleccionada}/{eskaeraDetalles}",
+                        arguments = listOf(
+                            navArgument("eskaeraZenb") { type = NavType.IntType },
+                            navArgument("mesaSeleccionada") { type = NavType.StringType },
+                            navArgument("eskaeraDetalles") { type = NavType.StringType }
+                        )
+                    ) { backStackEntry ->
+                        val eskaeraZenb = backStackEntry.arguments?.getInt("eskaeraZenb") ?: -1
+                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: ""
+                        val eskaeraDetallesString = backStackEntry.arguments?.getString("eskaeraDetalles") ?: ""
+                        val eskaeraDetalles = try {
+                            JSONObject(Uri.decode(eskaeraDetallesString))
+                        } catch (e: Exception) {
+                            JSONObject() // Objeto vacío en caso de error
+                        }
+                        if (eskaeraZenb != -1) {
+                            PantallaEditarEskaera(
+                                navController = navController,
+                                eskaeraZenb = eskaeraZenb,
+                                mesaSeleccionada = mesaSeleccionada,
+                                eskaeraDetalles = eskaeraDetalles
+                            )
+                        } else {
+                            Text("Error: No se pudo cargar la eskaera.")
+                        }
                     }
 
 
@@ -888,11 +919,13 @@ fun NuevaPantallaEskaeras(navController: NavController, username: String, mesaSe
                 else -> {
                     LazyColumn(modifier = Modifier.weight(1f)) {
                         items(eskaeras) { eskaera ->
-                            Log.d("EskaeraItem", "Mostrando eskaera: $eskaera") // Verificar los datos de cada eskaera
                             EskaeraItem(
                                 eskaera = eskaera,
                                 onEditarClick = { eskaeraZenb ->
-                                    navController.navigate("editarEskaera/$eskaeraZenb/$mesaSeleccionada")
+                                    val eskaeraSeleccionada = eskaeras.find { it["eskaeraZenb"] == eskaeraZenb }
+                                    if (eskaeraSeleccionada != null) {
+                                        navController.navigate("editarEskaera/$eskaeraZenb/${mesaSeleccionada}/${Uri.encode(JSONObject(eskaeraSeleccionada).toString())}")
+                                    }
                                 }
                             )
                         }
@@ -956,7 +989,6 @@ fun EskaeraItem(
                     fontSize = 16.sp
                 )
 
-                // Mostrar la nota_gehigarriak y eskaeraOrdua si están disponibles
                 plato["nota_gehigarriak"]?.let {
                     Text(
                         text = "Nota adicional: $it",
@@ -996,8 +1028,7 @@ fun obtenerEskaerasPorMesa(mesaId: Int, callback: (Boolean, List<Map<String, Any
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string()
 
-            Log.d("EskaeraResponse", "Respuesta del servidor: $responseBody") // Verificar la respuesta del servidor
-
+            // Comprobar si la respuesta es exitosa y no está vacía
             if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
                 try {
                     val jsonResponse = JSONObject(responseBody)
@@ -1007,11 +1038,13 @@ fun obtenerEskaerasPorMesa(mesaId: Int, callback: (Boolean, List<Map<String, Any
                         val eskaerasArray = jsonResponse.getJSONArray("eskaeras")
                         val lista = mutableListOf<Map<String, Any>>()
 
+                        // Procesar cada eskaera
                         for (i in 0 until eskaerasArray.length()) {
                             val obj = eskaerasArray.getJSONObject(i)
                             val platosArray = obj.getJSONArray("platos")
                             val platos = mutableListOf<Map<String, Any>>()
 
+                            // Procesar cada plato dentro de la eskaera
                             for (j in 0 until platosArray.length()) {
                                 val platoObj = platosArray.getJSONObject(j)
                                 platos.add(
@@ -1032,24 +1065,205 @@ fun obtenerEskaerasPorMesa(mesaId: Int, callback: (Boolean, List<Map<String, Any
                             )
                         }
 
-                        callback(true, lista)
+                        // Llamar al callback con el resultado exitoso
+                        withContext(Dispatchers.Main) {
+                            callback(true, lista)
+                        }
                     } else {
                         val errorMsg = jsonResponse.optString("message", "Errore ezezaguna")
-                        callback(false, listOf(mapOf("error" to errorMsg)))
+                        // Llamar al callback con error
+                        withContext(Dispatchers.Main) {
+                            callback(false, listOf(mapOf("error" to errorMsg)))
+                        }
                     }
                 } catch (e: Exception) {
-                    Log.d("EskaeraError", "Error al convertir la respuesta a JSON: ${e.localizedMessage}")
-                    callback(false, listOf(mapOf("error" to "Error al procesar los datos")))
+                    // Manejar error de parsing
+                    withContext(Dispatchers.Main) {
+                        callback(false, listOf(mapOf("error" to "Error al procesar los datos")))
+                    }
                 }
             } else {
-                callback(false, listOf(mapOf("error" to "Errorea zerbitzariarekin konektatzean")))
+                // Error en la respuesta o no hay contenido
+                withContext(Dispatchers.Main) {
+                    callback(false, listOf(mapOf("error" to "Errorea zerbitzariarekin konektatzean")))
+                }
             }
         } catch (e: Exception) {
-            Log.d("EskaeraError", "Error al obtener las eskaeras: ${e.localizedMessage}")
-            callback(false, listOf(mapOf("error" to (e.localizedMessage ?: "Errore ezezaguna"))))
+            // Error en la conexión o la solicitud
+            withContext(Dispatchers.Main) {
+                callback(false, listOf(mapOf("error" to (e.localizedMessage ?: "Errore ezezaguna"))))
+            }
         }
     }
 }
+
+@Composable
+fun PantallaEditarEskaera(
+    navController: NavController,
+    eskaeraZenb: Int,
+    mesaSeleccionada: String,
+    eskaeraDetalles: JSONObject
+) {
+    // Lista mutable para manejar los platos dinámicamente
+    var platos by remember { mutableStateOf(eskaeraDetalles.optJSONArray("platos")?.let { JSONArray(it.toString()) } ?: JSONArray()) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF091725))
+            .padding(16.dp)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.fondo_the_bull),
+            contentDescription = "Fondo",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 64.dp),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Edita la eskaera Nº$eskaeraZenb",
+                fontSize = 24.sp,
+                color = Color.Black,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Mesa: $mesaSeleccionada",
+                fontSize = 18.sp,
+                color = Color.Black
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                if (platos.length() > 0) {
+                    for (i in 0 until platos.length()) {
+                        val plato = platos.getJSONObject(i)
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(Color.White, RoundedCornerShape(8.dp))
+                                        .padding(16.dp)
+                                ) {
+                                    Text(
+                                        text = "Plato: ${plato.optString("izena")}",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Cantidad: ${maxOf(plato.optInt("cantidad"), 1)}", // Cantidad mínima de 1
+                                        fontSize = 14.sp
+                                    )
+                                    Text(
+                                        text = "Precio: ${plato.optDouble("prezioa")}€",
+                                        fontSize = 14.sp
+                                    )
+                                    Text(
+                                        text = "Nota adicional: ${plato.optString("nota_gehigarriak")}",
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                // Botón de eliminar
+                                Button(
+                                    onClick = {
+                                        val izena = plato.optString("izena")
+                                        eliminarPlatoDeBBDD(izena, eskaeraZenb) { success ->
+                                            if (success) {
+                                                // Crear una nueva lista sin el plato eliminado
+                                                val nuevaLista = JSONArray()
+                                                for (j in 0 until platos.length()) {
+                                                    if (j != i) {
+                                                        nuevaLista.put(platos.getJSONObject(j))
+                                                    }
+                                                }
+                                                platos = nuevaLista
+                                            } else {
+                                                Toast.makeText(navController.context, "Error al eliminar el plato", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Eliminar",
+                                        tint = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        Text(
+                            text = "No hay detalles disponibles",
+                            color = Color.Red
+                        )
+                    }
+                }
+            }
+            Button(
+                onClick = { navController.popBackStack() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
+            ) {
+                Text(text = "Volver", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+fun eliminarPlatoDeBBDD(izena: String, eskaeraZenb: Int, onResult: (Boolean) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val client = OkHttpClient()
+            val url = "http://10.0.2.2/eliminar_plato.php"
+            val jsonBody = JSONObject().apply {
+                put("izena", izena)
+                put("eskaeraZenb", eskaeraZenb)
+            }
+            val requestBody = RequestBody.create(
+                "application/json; charset=utf-8".toMediaType(),
+                jsonBody.toString()
+            )
+            val request = Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .build()
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string() ?: ""
+                val jsonResponse = JSONObject(responseBody)
+                val success = jsonResponse.optBoolean("success", false)
+                withContext(Dispatchers.Main) {
+                    onResult(success)
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    onResult(false)
+                }
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                onResult(false)
+            }
+        }
+    }
+}
+
+
+
 
 
 
