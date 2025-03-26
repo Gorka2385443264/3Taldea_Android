@@ -12,6 +12,9 @@ if ($mesa_id <= 0) {
     exit();
 }
 
+// Log: Mesa ID recibido
+error_log("Mesa ID recibido: $mesa_id");
+
 $stmt = $conexion->prepare("
     SELECT e.eskaeraZenb, e.izena, e.prezioa, p.nota_gehigarriak, p.eskaeraOrdua
     FROM eskaera e
@@ -41,6 +44,9 @@ while ($fila = $resultado->fetch_assoc()) {
         "eskaeraOrdua" => $fila["eskaeraOrdua"]
     ];
 }
+
+// Log: Verificar que los datos se hayan recuperado correctamente
+error_log("Datos recuperados: " . json_encode($eskaerak));
 
 // Reindexar el array para que no tenga claves personalizadas
 $eskaerak = array_values($eskaerak);
