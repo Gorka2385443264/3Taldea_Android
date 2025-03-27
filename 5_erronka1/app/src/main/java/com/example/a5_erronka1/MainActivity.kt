@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import android.os.Bundle
 import android.util.Log
+import java.net.URL
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -39,6 +40,7 @@ import com.example.a5_erronka1.ui.theme._5_erronka1Theme
 import kotlinx.coroutines.Dispatchers
 import org.json.JSONException
 import android.graphics.pdf.PdfDocument
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import androidx.annotation.RequiresApi
@@ -57,10 +59,12 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -71,12 +75,12 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
-    var username: String = ""
+    var username:String = ""
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
+        setContent {//HOLA
             _5_erronka1Theme {
-                val navController = rememberNavController()
+                val navController = rememberNavController() // Inicializar el controlador de navegación
                 NavHost(navController = navController, startDestination = "pantallaPrincipal") {
                     composable("pantallaPrincipal") {
                         PantallaPrincipal(navController = navController)
@@ -85,68 +89,145 @@ class MainActivity : ComponentActivity() {
                         SegundaPantalla(navController = navController)
                     }
                     composable(
-                        "pantallaMapa?username={username}",
+                        route = "pantallaMapa?username={username}",
                         arguments = listOf(navArgument("username") { defaultValue = "Usuario" })
                     ) { backStackEntry ->
                         val username = backStackEntry.arguments?.getString("username") ?: "Usuario"
                         PantallaMapa(navController = navController, username = username)
                     }
                     composable(
-                        "pantallaMenu/{username}/{mesaSeleccionada}",
+                        route = "pantallaMenu/{username}/{mesaSeleccionada}",
                         arguments = listOf(
                             navArgument("username") { defaultValue = "Usuario" },
                             navArgument("mesaSeleccionada") { defaultValue = "Mesa 1" }
                         )
-                    ) { backStackEntry ->
+                    ){ backStackEntry ->
                         username = backStackEntry.arguments?.getString("username") ?: "Usuario"
-                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
-                        PantallaMenu(navController = navController, username = username, mesaSeleccionada = mesaSeleccionada)
+                        val mesaSeleccionada =
+                            backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
+                        PantallaMenu(
+                            navController = navController,
+                            username = username,
+                            mesaSeleccionada = mesaSeleccionada
+                        )
                     }
                     composable(
-                        "pantallaFactura/{selectedItems}/{username}/{mesaSeleccionada}",
+                        route = "pantallaFactura/{selectedItems}/{username}/{mesaSeleccionada}",
                         arguments = listOf(
-                            navArgument("selectedItems") { defaultValue = "" },
-                            navArgument("username") { defaultValue = "Usuario" },
-                            navArgument("mesaSeleccionada") { defaultValue = "Mesa 1" }
+                            navArgument("selectedItems") { type = NavType.StringType },
+                            navArgument("username") { type = NavType.StringType },
+                            navArgument("mesaSeleccionada") { type = NavType.StringType }
                         )
                     ) { backStackEntry ->
-                        val selectedItems = backStackEntry.arguments?.getString("selectedItems") ?: ""
-                        username = backStackEntry.arguments?.getString("username") ?: "Usuario"
-                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
-
-                        val items = selectedItems.split(";").mapNotNull {
-                            val parts = it.split(":")
-                            if (parts.size == 4) {
-                                mapOf(
-                                    "id" to parts[0].toInt(),
-                                    "nombre" to parts[1],
-                                    "cantidad" to parts[2].toInt(),
-                                    "precio" to parts[3].toFloat()
-                                )
-                            } else null
+                        val selectedItemsJson = backStackEntry.arguments?.getString("selectedItems") ?: "[]"
+                        val username = backStackEntry.arguments?.getString("username") ?: ""
+                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: ""
+                        val selectedItems = try {
+                            JSONArray(selectedItemsJson).let { jsonArray ->
+                                val groupedItems = mutableMapOf<String, MutableMap<String, Any>>()
+                                for (i in 0 until jsonArray.length()) {
+                                    val item = jsonArray.getJSONObject(i)
+                                    val nombre = item.getString("nombre")
+                                    val cantidad = item.getInt("cantidad")
+                                    val precio = item.getDouble("precio").toFloat()
+                                    if (groupedItems.containsKey(nombre)) {
+                                        groupedItems[nombre]?.let {
+                                            it["cantidad"] = it["cantidad"] as Int + cantidad
+                                        }
+                                    } else {
+                                        groupedItems[nombre] = mutableMapOf(
+                                            "id" to item.getInt("id"),
+                                            "nombre" to nombre,
+                                            "cantidad" to cantidad,
+                                            "precio" to precio,
+                                            "nota" to ""
+                                        )
+                                    }
+                                }
+                                groupedItems.values.toList()
+                            }
+                        } catch (e: JSONException) {
+                            emptyList<Map<String, Any>>()
                         }
-
-                        PantallaFactura(navController = navController, selectedItems = items, username = username, mesaSeleccionada = mesaSeleccionada)
+                        PantallaFactura(
+                            navController = navController,
+                            selectedItems = selectedItems,
+                            username = username,
+                            mesaSeleccionada = mesaSeleccionada
+                        )
                     }
+                    // Pantalla de chat fuera de otro composable
                     composable(
-                        "pantallaChat?username={username}",
+                        route = "pantallaChat?username={username}",
                         arguments = listOf(navArgument("username") { defaultValue = "Usuario" })
                     ) { backStackEntry ->
                         val username = backStackEntry.arguments?.getString("username") ?: "Usuario"
                         PantallaChat(navController = navController, izena = username)
                     }
-                    // ✅ NUEVA PANTALLA EditarMesaScreen
+
+                    composable("pantallaEskaeras/{username}/{mesaSeleccionada}") { backStackEntry ->
+                        val username = backStackEntry.arguments?.getString("username") ?: ""
+                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: ""
+                        NuevaPantallaEskaeras(navController, username, mesaSeleccionada)
+                    }
+
                     composable(
-                        "editarMesa/{username}/{mesaSeleccionada}",
+                        route = "editarEskaera/{eskaeraZenb}/{mesaSeleccionada}/{eskaeraDetalles}/{username}", // Agregar username como parámetro
                         arguments = listOf(
-                            navArgument("username") { defaultValue = "Usuario" },
-                            navArgument("mesaSeleccionada") { defaultValue = "Mesa 1" }
+                            navArgument("eskaeraZenb") { type = NavType.IntType },
+                            navArgument("mesaSeleccionada") { type = NavType.StringType },
+                            navArgument("eskaeraDetalles") { type = NavType.StringType },
+                            navArgument("username") { type = NavType.StringType } // Agregar username como argumento
                         )
                     ) { backStackEntry ->
-                        val username = backStackEntry.arguments?.getString("username") ?: "Usuario"
-                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
-                        EditarMesaScreen(navController = navController, username = username, mesaSeleccionada = mesaSeleccionada)
+                        val eskaeraZenb = backStackEntry.arguments?.getInt("eskaeraZenb") ?: -1
+                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: ""
+                        val eskaeraDetallesString = backStackEntry.arguments?.getString("eskaeraDetalles") ?: ""
+                        val eskaeraDetalles = try {
+                            JSONObject(Uri.decode(eskaeraDetallesString))
+                        } catch (e: Exception) {
+                            JSONObject() // Objeto vacío en caso de error
+                        }
+                        val username = backStackEntry.arguments?.getString("username") ?: "" // Obtener username
+
+                        if (eskaeraZenb != -1) {
+                            PantallaEditarEskaera(
+                                navController = navController,
+                                eskaeraZenb = eskaeraZenb,
+                                mesaSeleccionada = mesaSeleccionada,
+                                eskaeraDetalles = eskaeraDetalles,
+                                username = username // Pasar username a la función
+                            )
+                        } else {
+                            Text("Error: No se pudo cargar la eskaera.")
+                        }
                     }
+
+                    composable(
+                        route = "agregarPlato/{username}/{mesaSeleccionada}/{eskaeraZenb}",
+                        arguments = listOf(
+                            navArgument("username") { type = NavType.StringType },
+                            navArgument("mesaSeleccionada") { type = NavType.StringType },
+                            navArgument("eskaeraZenb") { type = NavType.IntType }
+                        )
+                    ) { backStackEntry ->
+                        val username = backStackEntry.arguments?.getString("username") ?: ""
+                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: ""
+                        val eskaeraZenb = backStackEntry.arguments?.getInt("eskaeraZenb") ?: -1
+
+                        if (username.isNotEmpty() && mesaSeleccionada.isNotEmpty() && eskaeraZenb != -1) {
+                            PantallaAgregarPlato(
+                                navController = navController,
+                                username = username,
+                                mesaSeleccionada = mesaSeleccionada,
+                                eskaeraZenb = eskaeraZenb
+                            )
+                        } else {
+                            Text("Error: Datos incompletos")
+                        }
+                    }
+
+
 
                 }
             }
@@ -205,7 +286,6 @@ fun PantallaPrincipal(navController: NavController) {
         }
     }
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -339,7 +419,7 @@ fun SegundaPantalla(navController: NavController) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
-        // Imagen de fondo
+    // Imagen de fondo
     Image(
         painter = painterResource(id = R.drawable.fondo_the_bull),
         contentDescription = "Fondo",
@@ -350,7 +430,7 @@ fun SegundaPantalla(navController: NavController) {
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-     //   verticalArrangement = Arrangement.Center,
+        //   verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
@@ -467,6 +547,7 @@ fun PantallaMapa(navController: NavController, username: String) {
     var selectedMesa by remember { mutableStateOf<Int?>(null) }
     var mesas by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
 
+    // Cargar el estado de las mesas al cargar la pantalla
     LaunchedEffect(true) {
         obtenerEstadoMesas(navController) { mesasRecibidas ->
             mesas = mesasRecibidas
@@ -486,6 +567,7 @@ fun PantallaMapa(navController: NavController, username: String) {
             contentScale = ContentScale.Crop
         )
 
+        // Contenido de la pantalla
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -493,20 +575,23 @@ fun PantallaMapa(navController: NavController, username: String) {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // FILA CON EL LOGO Y EL MENSAJE
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Logo más grande
                 Image(
                     painter = painterResource(id = R.drawable.saboreame),
                     contentDescription = "Logo de la empresa",
                     modifier = Modifier
-                        .size(150.dp)
+                        .size(150.dp) // Aumentar tamaño
                         .padding(start = 8.dp)
                 )
-                Spacer(modifier = Modifier.weight(1f))
+
+                Spacer(modifier = Modifier.weight(1f)) // Para centrar el texto
                 Text(
                     text = "Kaixo $username!",
                     fontSize = 24.sp,
@@ -520,9 +605,10 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             }
 
+            // Texto que muestra el número de mesa seleccionado
             if (selectedMesa != null) {
                 Text(
-                    text = "Mesa seleccionada: $selectedMesa",
+                    text = "Nº$selectedMesa Mahaia aukeratu da.",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Normal,
                     color = Color.Black,
@@ -530,7 +616,7 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             } else {
                 Text(
-                    text = "No se ha seleccionado mesa aún",
+                    text = "Oraindik ez da mahaia aukeratu",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Normal,
                     color = Color.Black,
@@ -538,10 +624,11 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             }
 
+            // Aquí colocamos la imagen de mapeo que ocupará el espacio entre el logo y los botones
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
+                    .weight(1f) // Ocupa todo el espacio disponible entre el logo y los botones
             ) {
                 MapaDeMesas(selectedMesa, mesas) { mesaNumero ->
                     selectedMesa = mesaNumero
@@ -549,11 +636,13 @@ fun PantallaMapa(navController: NavController, username: String) {
             }
         }
 
+        // Botones abajo
         Row(
             modifier = Modifier
-                .align(Alignment.BottomStart)
+                .align(Alignment.BottomStart) // Alineación en la parte inferior izquierda
                 .padding(16.dp)
         ) {
+            // Botón "Atzera" a la izquierda
             Button(
                 onClick = { navController.navigate("segundaPantalla") },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
@@ -561,24 +650,43 @@ fun PantallaMapa(navController: NavController, username: String) {
                 Text(text = "Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(16.dp)) // Espacio entre los botones
 
+            // Botón "Txat" a la derecha del "Atzera"
             Button(
                 onClick = {
-                    navController.navigate("pantallaChat?username=$username")
+                    verificarPermisoTxat(username) { tienePermiso ->
+                        if (tienePermiso) {
+                            navController.navigate("pantallaChat?username=$username")
+                        } else {
+                            Toast.makeText(
+                                navController.context,
+                                "No tienes permiso para acceder al chat.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
                 modifier = Modifier.height(50.dp)
             ) {
-                Text(text = "Txat", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "Txat",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
+
+
         }
 
-        // ✅ CAMBIO: botón Jarraitu navega a EditarMesaScreen
+        // Botón "Jarraitu" abajo a la derecha
         Button(
             onClick = {
                 if (selectedMesa != null) {
-                    navController.navigate("editarMesa/$username/Mesa $selectedMesa")
+                    // Redirigir a pantallaEskaeras con el username y selectedMesa
+                    navController.navigate("pantallaEskaeras/$username/$selectedMesa")
                 } else {
                     Toast.makeText(
                         navController.context,
@@ -590,10 +698,32 @@ fun PantallaMapa(navController: NavController, username: String) {
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
             modifier = Modifier
-                .align(Alignment.BottomEnd)
+                .align(Alignment.BottomEnd) // Alineado abajo a la derecha
                 .padding(16.dp)
         ) {
             Text(text = "Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+
+    }
+}
+
+fun verificarPermisoTxat(username: String, onResult: (Boolean) -> Unit) {
+    val url = "http://10.0.2.2/verificar_permiso_chat.php?username=$username"
+
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val result = URL(url).readText()
+            val json = JSONObject(result)
+            val permiso = json.optInt("txatBaimena", 0)
+
+            withContext(Dispatchers.Main) {
+                onResult(permiso == 1)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            withContext(Dispatchers.Main) {
+                onResult(false)
+            }
         }
     }
 }
@@ -679,7 +809,7 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
                 5 -> 177f
                 6 -> 177f
                 7 -> 177f
-               // 9 -> 280f
+                // 9 -> 280f
                 //10 -> 280f
                 8 -> 380f
                 9 -> 380f
@@ -687,7 +817,7 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
                 10 -> 475f
                 11 -> 475f
                 12 -> 475f
-               // 17 -> 475f
+                // 17 -> 475f
                 13 -> 375f
                 14 -> 375f
                 15 -> 475f
@@ -710,70 +840,6 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
         }
     }
 }
-
-@Composable
-fun EditarMesaScreen(
-    navController: NavController,
-    username: String,
-    mesaSeleccionada: String
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
-            .padding(24.dp) // Más espacioso para tablet
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 24.dp)
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.saboreame),
-                    contentDescription = "Logo",
-                    modifier = Modifier.size(100.dp)
-                )
-                Spacer(modifier = Modifier.width(24.dp))
-                Text(
-                    text = "Kaixo $username, has elegido la mesa $mesaSeleccionada!",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.weight(1f)) // Empuja los botones abajo
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Button(
-                    onClick = {
-                        navController.navigate("pantallaMapa?username=$username")
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Button(
-                    onClick = {
-                        navController.navigate("pantallaMenu/$username/$mesaSeleccionada")
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
 
 @Composable
 fun MesaInteractiva(
@@ -869,70 +935,22 @@ fun obtenerEstadoMesas(navController: NavController, onMesasRecibidas: (List<Map
     }
 }
 
+
 @Composable
-fun PantallaMenu(navController: NavController, username: String, mesaSeleccionada: String) {
-    var platos by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    val cantidades = remember { mutableStateMapOf<String, Int>() }
+fun NuevaPantallaEskaeras(navController: NavController, username: String, mesaSeleccionada: String) {
+    var eskaeras by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(errorMessage) {
-        if (errorMessage != null) {
-            delay(2000)
-            errorMessage = null
-        }
-    }
-
+    // Obtener eskaeras al cargar la pantalla
     LaunchedEffect(Unit) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val client = OkHttpClient()
-                val url = "http://10.0.2.2/menu.php"
-
-                val request = Request.Builder()
-                    .url(url)
-                    .get()
-                    .build()
-
-                val response = client.newCall(request).execute()
-                val responseBody = response.body?.string()
-                Log.d("RespuestaServidor", "Response Body: $responseBody")
-
-                if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
-                    val jsonResponse = JSONObject(responseBody)
-                    if (jsonResponse.getBoolean("success")) {
-                        val data = jsonResponse.getJSONArray("data")
-                        val items = mutableListOf<Map<String, Any>>()
-
-                        for (i in 0 until data.length()) {
-                            val item = data.getJSONObject(i)
-                            if (item.getInt("menu") == 1) {
-                                val plato = mapOf(
-                                    "id" to item.getInt("id"),
-                                    "izena" to item.getString("izena"),
-                                    "prezioa" to item.getString("prezioa"),
-                                    "kantitatea" to item.optInt("kantitatea", 0),
-                                    "kategoria" to item.optString("kategoria", "Categoría desconocida"),
-                                    "deskribapena" to item.getString("deskribapena")
-                                )
-                                items.add(plato)
-                            }
-                        }
-
-                        withContext(Dispatchers.Main) {
-                            platos = items
-                        }
-                    } else {
-                        withContext(Dispatchers.Main) {
-                            errorMessage = jsonResponse.getString("message")
-                        }
-                    }
-                }
-
-            } catch (e: IOException) {
-                withContext(Dispatchers.Main) {
-                    errorMessage = "Excepción: ${e.message}"
-                }
+        obtenerEskaerasPorMesa(mesaSeleccionada.toInt()) { success, result ->
+            if (success) {
+                eskaeras = result
+            } else {
+                error = result.firstOrNull()?.get("error") as? String ?: "Error desconocido"
             }
+            isLoading = false
         }
     }
 
@@ -953,18 +971,475 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = 64.dp),
-            verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalArrangement = Arrangement.Top
         ) {
-            Text(text = "Menua", fontSize = 24.sp, color = Color.Black, fontWeight = FontWeight.Bold)
             Text(
-                text = "$username aukeratu du $mesaSeleccionada mahaila zenb",
+                text = "Eskaerak - Mahaia: $mesaSeleccionada",
+                fontSize = 24.sp,
                 color = Color.Black,
-                fontSize = 16.sp
+                fontWeight = FontWeight.Bold
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            when {
+                isLoading -> {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
+                }
+                error != null -> {
+                    Text(text = error!!, color = Color.Red)
+                }
+                eskaeras.isEmpty() -> {
+                    Text(text = "Ez dago eskaerarik", color = Color.Black)
+                }
+                else -> {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(eskaeras) { eskaera ->
+                            EskaeraItem(
+                                eskaera = eskaera,
+                                onEditarClick = { eskaeraZenb ->
+                                    val eskaeraSeleccionada = eskaeras.find { it["eskaeraZenb"] == eskaeraZenb }
+                                    if (eskaeraSeleccionada != null) {
+                                        navController.navigate("editarEskaera/$eskaeraZenb/${mesaSeleccionada}/${Uri.encode(JSONObject(eskaeraSeleccionada).toString())}/$username")                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Button(
+                onClick = {
+                    navController.navigate("pantallaMenu/$username/$mesaSeleccionada")
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
+            ) {
+                Text("Eskaera berria sortu", fontSize = 16.sp)
+            }
+        }
+
+        Button(
+            onClick = { navController.popBackStack() },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
+        ) {
+            Text("Atzera")
+        }
+    }
+}
+
+@Composable
+fun EskaeraItem(
+    eskaera: Map<String, Any>,
+    onEditarClick: (Int) -> Unit // recibe eskaeraZenb para saber cuál editar
+) {
+    val eskaeraZenb = eskaera["eskaeraZenb"] as? Int ?: return
+    val platos = eskaera["platos"] as? List<Map<String, Any>> ?: emptyList()
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "EskaeraZenb: $eskaeraZenb",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = Color.Black
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            platos.forEach { plato ->
+                Text(
+                    text = "${plato["izena"]} - ${plato["prezioa"]}€",
+                    color = Color.DarkGray,
+                    fontSize = 16.sp
+                )
+
+                plato["nota_gehigarriak"]?.let {
+                    Text(
+                        text = "Ohar gehigarria: $it",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
+                }
+
+                plato["eskaeraOrdua"]?.let {
+                    Text(
+                        text = "Eskaera-ordua: $it",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = { onEditarClick(eskaeraZenb) },
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Editatu")
+            }
+        }
+    }
+}
+
+fun obtenerEskaerasPorMesa(mesaId: Int, callback: (Boolean, List<Map<String, Any>>) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val client = OkHttpClient()
+            val url = "http://10.0.2.2/obtener_eskaeras.php?mesa_id=$mesaId"
+
+            val request = Request.Builder().url(url).get().build()
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            // Comprobar si la respuesta es exitosa y no está vacía
+            if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
+                try {
+                    val jsonResponse = JSONObject(responseBody)
+                    val success = jsonResponse.getBoolean("success")
+
+                    if (success) {
+                        val eskaerasArray = jsonResponse.getJSONArray("eskaeras")
+                        val lista = mutableListOf<Map<String, Any>>()
+
+                        // Procesar cada eskaera
+                        for (i in 0 until eskaerasArray.length()) {
+                            val obj = eskaerasArray.getJSONObject(i)
+                            val platosArray = obj.getJSONArray("platos")
+                            val platos = mutableListOf<Map<String, Any>>()
+
+                            // Procesar cada plato dentro de la eskaera
+                            for (j in 0 until platosArray.length()) {
+                                val platoObj = platosArray.getJSONObject(j)
+                                platos.add(
+                                    mapOf(
+                                        "izena" to platoObj.getString("izena"),
+                                        "prezioa" to platoObj.getDouble("prezioa"),
+                                        "nota_gehigarriak" to platoObj.getString("nota_gehigarriak"),
+                                        "eskaeraOrdua" to platoObj.getString("eskaeraOrdua")
+                                    )
+                                )
+                            }
+
+                            lista.add(
+                                mapOf(
+                                    "eskaeraZenb" to obj.getInt("eskaeraZenb"),
+                                    "platos" to platos
+                                )
+                            )
+                        }
+
+                        // Llamar al callback con el resultado exitoso
+                        withContext(Dispatchers.Main) {
+                            callback(true, lista)
+                        }
+                    } else {
+                        val errorMsg = jsonResponse.optString("message", "Errore ezezaguna")
+                        // Llamar al callback con error
+                        withContext(Dispatchers.Main) {
+                            callback(false, listOf(mapOf("error" to errorMsg)))
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Manejar error de parsing
+                    withContext(Dispatchers.Main) {
+                        callback(false, listOf(mapOf("error" to "Error al procesar los datos")))
+                    }
+                }
+            } else {
+                // Error en la respuesta o no hay contenido
+                withContext(Dispatchers.Main) {
+                    callback(false, listOf(mapOf("error" to "Errorea zerbitzariarekin konektatzean")))
+                }
+            }
+        } catch (e: Exception) {
+            // Error en la conexión o la solicitud
+            withContext(Dispatchers.Main) {
+                callback(false, listOf(mapOf("error" to (e.localizedMessage ?: "Errore ezezaguna"))))
+            }
+        }
+    }
+}
+
+@Composable
+fun PantallaEditarEskaera(
+    navController: NavController,
+    eskaeraZenb: Int,
+    mesaSeleccionada: String,
+    eskaeraDetalles: JSONObject,
+    username: String // Agregar username como parámetro
+) {
+    // Lista mutable para manejar los platos dinámicamente
+    var platos by remember { mutableStateOf(eskaeraDetalles.optJSONArray("platos")?.let { JSONArray(it.toString()) } ?: JSONArray()) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF091725))
+            .padding(16.dp)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.fondo_the_bull),
+            contentDescription = "Fondo",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 64.dp),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Editatu la eskaera Nº$eskaeraZenb",
+                fontSize = 24.sp,
+                color = Color.Black,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Mahaia: $mesaSeleccionada",
+                fontSize = 18.sp,
+                color = Color.Black
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                if (platos.length() > 0) {
+                    for (i in 0 until platos.length()) {
+                        val plato = platos.getJSONObject(i)
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .background(Color.White, RoundedCornerShape(8.dp))
+                                        .padding(16.dp)
+                                ) {
+                                    Text(
+                                        text = "Plato: ${plato.optString("izena")}",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "Kopurua: ${maxOf(plato.optInt("cantidad"), 1)}", // Cantidad mínima de 1
+                                        fontSize = 14.sp
+                                    )
+                                    Text(
+                                        text = "Prezioa: ${plato.optDouble("prezioa")}€",
+                                        fontSize = 14.sp
+                                    )
+                                    Text(
+                                        text = "Ohar gehigarria: ${plato.optString("nota_gehigarriak")}",
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                // Botón de eliminar
+                                Button(
+                                    onClick = {
+                                        val izena = plato.optString("izena")
+                                        eliminarPlatoDeBBDD(izena, eskaeraZenb) { success ->
+                                            if (success) {
+                                                // Crear una nueva lista sin el plato eliminado
+                                                val nuevaLista = JSONArray()
+                                                for (j in 0 until platos.length()) {
+                                                    if (j != i) {
+                                                        nuevaLista.put(platos.getJSONObject(j))
+                                                    }
+                                                }
+                                                platos = nuevaLista
+                                            } else {
+                                                Toast.makeText(navController.context, "Error al eliminar el plato", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                    modifier = Modifier.size(48.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Ezabatu",
+                                        tint = Color.White
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    item {
+                        Text(
+                            text = "Ez dago xehetasunik eskuragarri",
+                            color = Color.Red
+                        )
+                    }
+                }
+            }
+            // Botón "Volver"
+            Button(
+                onClick = { navController.popBackStack() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text(text = "Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            // Botón "Agregar un plato"
+            Button(
+                onClick = {
+                    navController.navigate("agregarPlato/$username/$mesaSeleccionada/$eskaeraZenb")
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 16.dp)
+            ) {
+                Text(text = "Plater bat gehitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+fun eliminarPlatoDeBBDD(izena: String, eskaeraZenb: Int, onResult: (Boolean) -> Unit) {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val client = OkHttpClient()
+            val url = "http://10.0.2.2/eliminar_plato.php"
+            val jsonBody = JSONObject().apply {
+                put("izena", izena)
+                put("eskaeraZenb", eskaeraZenb)
+            }
+            val requestBody = RequestBody.create(
+                "application/json; charset=utf-8".toMediaType(),
+                jsonBody.toString()
+            )
+            val request = Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .build()
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string() ?: ""
+                val jsonResponse = JSONObject(responseBody)
+                val success = jsonResponse.optBoolean("success", false)
+                withContext(Dispatchers.Main) {
+                    onResult(success)
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    onResult(false)
+                }
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                onResult(false)
+            }
+        }
+    }
+}
+
+@Composable
+fun PantallaAgregarPlato(
+    navController: NavController,
+    username: String,
+    mesaSeleccionada: String,
+    eskaeraZenb: Int
+) {
+    var platos by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val cantidades = remember { mutableStateMapOf<String, Int>() }
+
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
+            delay(2000)
+            errorMessage = null
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val client = OkHttpClient()
+                val url = "http://10.0.2.2/menu.php"
+                val request = Request.Builder().url(url).get().build()
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string()
+                Log.d("PantallaAgregarPlato", "Respuesta del servidor: $responseBody") // Log de la respuesta del menú
+
+                if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
+                    val jsonResponse = JSONObject(responseBody)
+                    if (jsonResponse.getBoolean("success")) {
+                        // 🔴 Cambiar "data" por "menu"
+                        val menuArray = jsonResponse.getJSONArray("menu")
+                        val items = mutableListOf<Map<String, Any>>()
+
+                        for (i in 0 until menuArray.length()) {
+                            val item = menuArray.getJSONObject(i)
+                            val plato = mapOf(
+                                "id" to item.getInt("id"),
+                                "izena" to item.getString("izena"),
+                                "prezioa" to item.getString("prezioa"),
+                                "kategoria" to item.optString("kategoria", "Categoría desconocida"),
+                                "deskribapena" to item.getString("deskribapena")
+                            )
+                            items.add(plato)
+                        }
+
+                        withContext(Dispatchers.Main) {
+                            platos = items
+                        }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            errorMessage = jsonResponse.getString("message")
+                        }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        errorMessage = "Error de conexión: ${response.message}"
+                    }
+                }
+            } catch (e: IOException) {
+                withContext(Dispatchers.Main) {
+                    errorMessage = "Excepción: ${e.message}"
+                }
+            }
+        }
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF091725))
+            .padding(16.dp)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.fondo_the_bull),
+            contentDescription = "Fondo",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 64.dp),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = "Platera gehitu", fontSize = 24.sp, color = Color.Black, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
             if (errorMessage != null) {
                 Text(
                     text = errorMessage!!,
@@ -977,7 +1452,6 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                         .padding(8.dp)
                 )
             }
-
             if (platos.isEmpty()) {
                 Text(text = "Ez dago informazioarik", color = Color.Black)
             } else {
@@ -986,7 +1460,6 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                     val categorias = platos.groupBy {
                         (it["kategoria"] as? String) ?: "Categoría desconocida"
                     }.toSortedMap(compareBy { categoriasOrdenadas.indexOf(it).takeIf { it != -1 } ?: Int.MAX_VALUE })
-
                     categorias.forEach { (categoria, platosDeCategoria) ->
                         item {
                             Text(
@@ -1001,11 +1474,9 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                             val nombrePlato = plato["izena"] as String
                             val precioPlato = plato["prezioa"] as String
                             val descripcion = plato["deskribapena"] as String
-                            val cantidadMaxima = plato["kantitatea"] as Int
                             val cantidadActual = cantidades[nombrePlato] ?: 0
                             val platoId = plato["id"] as? Int ?: -1
                             var showPopup by remember { mutableStateOf(false) }
-
                             if (showPopup) {
                                 AlertDialog(
                                     onDismissRequest = { showPopup = false },
@@ -1021,7 +1492,6 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                     }
                                 )
                             }
-
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1037,7 +1507,6 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.width(120.dp)
                                     )
-
                                     IconButton(
                                         onClick = { showPopup = true },
                                         modifier = Modifier.size(24.dp)
@@ -1049,20 +1518,15 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                         )
                                     }
                                 }
-
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(text = "$precioPlato€", color = Color.Black, fontSize = 16.sp)
-
                                     Spacer(modifier = Modifier.width(8.dp))
-
                                     Text(
                                         text = "Cnt: $cantidadActual",
                                         color = Color.Black,
                                         fontSize = 16.sp
                                     )
-
                                     Spacer(modifier = Modifier.width(16.dp))
-
                                     Button(
                                         onClick = {
                                             if (platoId != -1) {
@@ -1073,7 +1537,6 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                                         val request = Request.Builder().url(url).get().build()
                                                         val response = client.newCall(request).execute()
                                                         val responseBody = response.body?.string()
-
                                                         if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
                                                             val jsonResponse = JSONObject(responseBody)
                                                             if (jsonResponse.getBoolean("success")) {
@@ -1100,40 +1563,6 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                     ) {
                                         Text(text = "+", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     }
-
-                                    Spacer(modifier = Modifier.width(8.dp))
-
-                                    Button(
-                                        onClick = {
-                                            if (cantidadActual > 0) {
-                                                CoroutineScope(Dispatchers.IO).launch {
-                                                    try {
-                                                        val client = OkHttpClient()
-                                                        val url = "http://10.0.2.2/almazena2.php?platera_id=$platoId&operation=subtract"
-                                                        val request = Request.Builder().url(url).get().build()
-                                                        val response = client.newCall(request).execute()
-                                                        val responseBody = response.body?.string()
-
-                                                        if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
-                                                            val jsonResponse = JSONObject(responseBody)
-                                                            if (jsonResponse.getBoolean("success")) {
-                                                                withContext(Dispatchers.Main) {
-                                                                    cantidades[nombrePlato] = cantidadActual - 1
-                                                                }
-                                                            }
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        Log.d("BotonMenos", "Error: ${e.message}")
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        shape = RoundedCornerShape(8.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Text(text = "-", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                    }
                                 }
                             }
                         }
@@ -1141,7 +1570,6 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                 }
             }
         }
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1150,12 +1578,11 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Button(
-                onClick = { navController.navigate("pantallaMapa?username=$username") },
+                onClick = { navController.popBackStack() },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
             ) {
                 Text(text = "Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
-
             Button(
                 onClick = {
                     val selectedItems = cantidades.filterValues { it > 0 }
@@ -1167,16 +1594,320 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                             "$platoId:$nombrePlato:${plato.value}:$precio"
                         }
                         .joinToString(";")
+                    Log.d("PantallaAgregarPlato", "Hautatutako elementuak: $selectedItems") // Log de los elementos seleccionados
 
                     if (selectedItems.isEmpty()) {
-                        errorMessage = "Debe seleccionar al menos un plato para continuar."
+                        errorMessage = "Plater bat aukeratu behar duzu, gutxienez, jarraitzeko."
                     } else {
-                        navController.navigate("pantallaFactura/$selectedItems/$username/$mesaSeleccionada")
+                        insertarPlatoEnEskaera(mesaSeleccionada.toInt(), eskaeraZenb, selectedItems) { success ->
+                            if (success) {
+                                Log.d("PantallaAgregarPlato", "Platera behar bezala erantsita") // Log de éxito
+                                navController.popBackStack()
+                            } else {
+                                Log.e("PantallaAgregarPlato", "Errorea platera gehitzean") // Log de error
+                                errorMessage = "Errorea platera gehitzean."
+                            }
+                        }
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
             ) {
-                Text(text = "Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Gorde", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+fun insertarPlatoEnEskaera(
+    mesaId: Int,
+    eskaeraZenb: Int,
+    selectedItems: String,
+    onResult: (Boolean) -> Unit
+) {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val client = OkHttpClient()
+            val url = "http://10.0.2.2/insertar_plato.php"
+            val jsonBody = JSONObject().apply {
+                put("mesa_id", mesaId)
+                put("eskaeraZenb", eskaeraZenb)
+                put("platos", JSONArray(selectedItems.split(";").map { it }))
+            }
+            Log.d("InsertarPlato", "Solicitud a enviar: $jsonBody") // Log de la solicitud
+
+            val requestBody = RequestBody.create(
+                "application/json; charset=utf-8".toMediaType(),
+                jsonBody.toString()
+            )
+            val request = Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .build()
+
+            Log.d("InsertarPlato", "Enviando solicitud al servidor...") // Log antes de enviar la solicitud
+            val response = client.newCall(request).execute()
+
+            if (response.isSuccessful) {
+                val responseBody = response.body?.string() ?: ""
+                Log.d("InsertarPlato", "Respuesta del servidor: $responseBody") // Log de la respuesta del servidor
+
+                val jsonResponse = JSONObject(responseBody)
+                val success = jsonResponse.optBoolean("success", false)
+                withContext(Dispatchers.Main) {
+                    onResult(success)
+                }
+            } else {
+                Log.e("InsertarPlato", "Error en la respuesta del servidor: ${response.message}") // Log de errores del servidor
+                withContext(Dispatchers.Main) {
+                    onResult(false)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("InsertarPlato", "Excepción durante la inserción: ${e.message}") // Log de excepciones
+            withContext(Dispatchers.Main) {
+                onResult(false)
+            }
+        }
+    }
+}
+
+@Composable
+fun PantallaMenu(navController: NavController, username: String, mesaSeleccionada: String) {
+    var platos by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val cantidades = remember { mutableStateMapOf<String, Int>() }
+    var descripcionPlato by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val client = OkHttpClient()
+                val url = "http://10.0.2.2/menu.php"
+                val request = Request.Builder().url(url).get().build()
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string()
+                Log.d("RespuestaServidor", "Response Body: $responseBody")
+
+                if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
+                    val jsonResponse = JSONObject(responseBody)
+                    if (jsonResponse.getBoolean("success")) {
+                        // 🔴 Clave "menu" en lugar de "data"
+                        val menuArray = jsonResponse.getJSONArray("menu")
+                        val items = mutableListOf<Map<String, Any>>()
+
+                        for (i in 0 until menuArray.length()) {
+                            val item = menuArray.getJSONObject(i)
+                            val plato = mapOf(
+                                "id" to item.getInt("id"),
+                                "izena" to item.getString("izena"),
+                                "prezioa" to item.getString("prezioa"),
+                                "kategoria" to item.optString("kategoria", "Categoría desconocida"),
+                                "deskribapena" to item.getString("deskribapena")
+                            )
+                            items.add(plato)
+                        }
+                        withContext(Dispatchers.Main) { platos = items }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            errorMessage = jsonResponse.getString("message")
+                        }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        errorMessage = "Error de conexión: ${response.message}"
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    errorMessage = "Excepción: ${e.message}"
+                }
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF091725))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 64.dp),
+            verticalArrangement = Arrangement.Top
+        ) {
+            Text(
+                text = "Menua",
+                fontSize = 24.sp,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "$username, $mesaSeleccionada. mahaia aukeratu du",
+                color = Color.White,
+                fontSize = 16.sp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage!!,
+                    color = Color.Red,
+                    fontSize = 16.sp,
+                    modifier = Modifier.padding(vertical = 8.dp).fillMaxWidth().background(Color(0x44FF0000)).padding(8.dp)
+                )
+            }
+
+            if (platos.isEmpty()) {
+                CircularProgressIndicator(color = Color(0xFFBA450D))
+            } else {
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    val categoriasOrdenadas = listOf("Edaria", "Lehenengo platera", "Bigarren platera", "Postrea")
+                    val categorias = platos.groupBy {
+                        (it["kategoria"] as? String) ?: "Categoría desconocida"
+                    }.toSortedMap(compareBy { categoriasOrdenadas.indexOf(it).takeIf { it != -1 } ?: Int.MAX_VALUE })
+
+                    categorias.forEach { (categoria, platosCategoria) ->
+                        item {
+                            Text(
+                                text = categoria,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
+
+                        items(platosCategoria) { plato ->
+                            val nombrePlato = plato["izena"] as String
+                            val precioPlato = plato["prezioa"] as String
+                            val descripcion = plato["deskribapena"] as String
+                            val cantidadActual = cantidades[nombrePlato] ?: 0
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp)
+                                    .background(Color.White, RoundedCornerShape(8.dp))
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                // 🔍 Botón de descripción a la izquierda
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(
+                                        onClick = { descripcionPlato = descripcion },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = "Ikusi deskribapena",
+                                            tint = Color.Black
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    Column {
+                                        Text(
+                                            text = nombrePlato,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "$precioPlato€",
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                }
+
+                                // 🔴 Botones de cantidad a la derecha
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Button(
+                                        onClick = { cantidades[nombrePlato] = cantidadActual + 1 },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Text("+", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    Text(
+                                        text = cantidadActual.toString(),
+                                        color = Color.Black,
+                                        fontSize = 16.sp,
+                                        modifier = Modifier.padding(horizontal = 8.dp)
+                                    )
+
+                                    Button(
+                                        onClick = {
+                                            if (cantidadActual > 0) {
+                                                cantidades[nombrePlato] = cantidadActual - 1
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Text("-", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Diálogo de descripción
+        if (descripcionPlato != null) {
+            AlertDialog(
+                onDismissRequest = { descripcionPlato = null },
+                confirmButton = {
+                    Button(
+                        onClick = { descripcionPlato = null },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA450D))
+                    ) {
+                        Text("Itxi", color = Color.White)
+                    }
+                },
+                title = { Text("Plateraren deskribapena") },
+                text = { Text(descripcionPlato!!) }
+            )
+        }
+
+        // Botones inferiores (Volver y Siguiente)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Button(
+                onClick = { navController.popBackStack() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
+            ) {
+                Text("Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Button(
+                onClick = {
+                    val groupedItems = cantidades.filterValues { it > 0 }.map { (nombre, cantidad) ->
+                        val platoData = platos.find { it["izena"] == nombre }!!
+                        mapOf(
+                            "id" to platoData["id"] as Int,
+                            "nombre" to platoData["izena"] as String,
+                            "cantidad" to cantidad,
+                            "precio" to platoData["prezioa"].toString().toFloat(),
+                            "nota" to "" // Nota inicial vacía
+                        )
+                    }
+                    if (groupedItems.isNotEmpty()) {
+                        navController.navigate("pantallaFactura/${Uri.encode(JSONArray(groupedItems).toString())}/$username/$mesaSeleccionada")
+                    } else {
+                        errorMessage = "Aukeratu plater bat gutxienez"
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
+            ) {
+                Text("Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -1238,13 +1969,13 @@ fun PantallaFactura(navController: NavController, selectedItems: List<Map<String
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("ID", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.5f))
-                            Text("Izena", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
-                            Text("Kant", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.5f))
-                            Text("Prezioa", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Text("Notak", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("ID", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("Izena", fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
+                            Text("Kant", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("Prezioa", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("Notak", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         }
                     }
                     itemsIndexed(mutableSelectedItems.value) { index, plato ->
@@ -1252,34 +1983,31 @@ fun PantallaFactura(navController: NavController, selectedItems: List<Map<String
                         val nombre = plato["nombre"] as String
                         val cantidad = plato["cantidad"] as Int
                         val precio = plato["precio"] as Float
-                        val nota = plato["nota"] as? String ?: ""  // Aseguramos que la nota sea un String vacío si es null
+                        val nota = plato["nota"] as? String ?: ""
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("$id", color = Color.Black, fontSize = 16.sp, modifier = Modifier.weight(0.5f))
-                            Text(nombre, color = Color.Black, fontSize = 16.sp, modifier = Modifier.weight(2f))
-                            Text("(x$cantidad)", color = Color.Black, fontSize = 16.sp, modifier = Modifier.weight(0.5f))
-                            Text("${precio}€", color = Color.Black, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                            Text("$id", modifier = Modifier.weight(1f))
+                            Text(nombre, modifier = Modifier.weight(2f))
+                            Text("(x$cantidad)", modifier = Modifier.weight(1f))
+                            Text("${precio}€", modifier = Modifier.weight(1f))
                             Button(
                                 onClick = {
-                                    // Aseguramos de actualizar correctamente el índice
                                     currentItemIndex.value = index
                                     currentNote.value = nota
                                     noteDialogState.value = true
                                 },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Text(text = if (nota.isEmpty()) "" else "Editar Nota", fontSize = 14.sp)
+                                Text(if (nota.isEmpty()) "Gehitu oharra" else "Editatu oharra")
                             }
                         }
                     }
-                }
-            }
+                }            }
         }
 
         Row(
@@ -1372,8 +2100,8 @@ fun PantallaFactura(navController: NavController, selectedItems: List<Map<String
                     showDialog.value = false
                     navController.navigate("pantallaMapa?username=$username")
                 },
-                title = { Text(text = "Comanda Confirmada", color = Color.Black) },
-                text = { Text("La comanda ha sido registrada con éxito.") },
+                title = { Text(text = "Komanda baieztatua", color = Color.Black) },
+                text = { Text("Eskaera ondo erregistratu da.") },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -1382,7 +2110,7 @@ fun PantallaFactura(navController: NavController, selectedItems: List<Map<String
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA450D))
                     ) {
-                        Text(text = "Aceptar", fontSize = 16.sp)
+                        Text(text = "Jarraitu", fontSize = 16.sp)
                     }
                 }
             )
@@ -1510,19 +2238,6 @@ fun VistaPreviaPantallaMapa() {
         PantallaMapa(navController = rememberNavController(), username = "Juan")
     }
 }
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun EditarMesaScreenPreview() {
-    _5_erronka1Theme {
-        EditarMesaScreen(
-            navController = rememberNavController(),
-            username = "Ane",
-            mesaSeleccionada = "5"
-        )
-    }
-}
-
 
 @Preview(showBackground = true)
 @Composable
