@@ -567,7 +567,6 @@ fun PantallaMapa(navController: NavController, username: String) {
             contentScale = ContentScale.Crop
         )
 
-        // Contenido de la pantalla
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -575,23 +574,20 @@ fun PantallaMapa(navController: NavController, username: String) {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // FILA CON EL LOGO Y EL MENSAJE
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Logo más grande
                 Image(
                     painter = painterResource(id = R.drawable.saboreame),
                     contentDescription = "Logo de la empresa",
                     modifier = Modifier
-                        .size(150.dp) // Aumentar tamaño
+                        .size(150.dp)
                         .padding(start = 8.dp)
                 )
-
-                Spacer(modifier = Modifier.weight(1f)) // Para centrar el texto
+                Spacer(modifier = Modifier.weight(1f))
                 Text(
                     text = "Kaixo $username!",
                     fontSize = 24.sp,
@@ -605,7 +601,6 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             }
 
-            // Texto que muestra el número de mesa seleccionado
             if (selectedMesa != null) {
                 Text(
                     text = "Mahaia: $selectedMesa aukeratu da",
@@ -616,7 +611,7 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             } else {
                 Text(
-                    text = "Oraindik ez dgo mahaia aukeratu",
+                    text = "ez dgo mahaia aukeratu",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Normal,
                     color = Color.Black,
@@ -627,7 +622,7 @@ fun PantallaMapa(navController: NavController, username: String) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f) // Ocupa todo el espacio disponible entre el logo y los botones
+                    .weight(1f)
             ) {
                 MapaDeMesas(selectedMesa, mesas) { mesaNumero ->
                     selectedMesa = mesaNumero
@@ -635,23 +630,18 @@ fun PantallaMapa(navController: NavController, username: String) {
             }
         }
 
-        // Botones abajo
         Row(
             modifier = Modifier
-                .align(Alignment.BottomStart) // Alineación en la parte inferior izquierda
+                .align(Alignment.BottomStart)
                 .padding(16.dp)
         ) {
-            // Botón "Atzera" a la izquierda
             Button(
                 onClick = { navController.navigate("segundaPantalla") },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
             ) {
                 Text(text = "Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
-
-            Spacer(modifier = Modifier.width(16.dp)) // Espacio entre los botones
-
-            // Botón "Txat" a la derecha del "Atzera"
+            Spacer(modifier = Modifier.width(16.dp))
             Button(
                 onClick = {
                     verificarPermisoTxat(username) { tienePermiso ->
@@ -676,15 +666,11 @@ fun PantallaMapa(navController: NavController, username: String) {
                     fontWeight = FontWeight.Bold
                 )
             }
-
-
         }
 
-        // Botón "Jarraitu" abajo a la derecha
         Button(
             onClick = {
                 if (selectedMesa != null) {
-                    // Redirigir a pantallaEskaeras con el username y selectedMesa
                     navController.navigate("pantallaEskaeras/$username/$selectedMesa")
                 } else {
                     Toast.makeText(
@@ -697,24 +683,21 @@ fun PantallaMapa(navController: NavController, username: String) {
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
             modifier = Modifier
-                .align(Alignment.BottomEnd) // Alineado abajo a la derecha
+                .align(Alignment.BottomEnd)
                 .padding(16.dp)
         ) {
             Text(text = "Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
-
     }
 }
 
 fun verificarPermisoTxat(username: String, onResult: (Boolean) -> Unit) {
     val url = "http://10.0.2.2/verificar_permiso_chat.php?username=$username"
-
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val result = URL(url).readText()
             val json = JSONObject(result)
             val permiso = json.optInt("txatBaimena", 0)
-
             withContext(Dispatchers.Main) {
                 onResult(permiso == 1)
             }
@@ -736,10 +719,8 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
     ) {
         val currentWidth = constraints.maxWidth
         val currentHeight = constraints.maxHeight
-
         val baseWidth = 912f
         val baseHeight = 1282f
-
         val scaleWidth = currentWidth / baseWidth
         val scaleHeight = currentHeight / baseHeight
 
@@ -751,47 +732,39 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
             return (baseY * scaleHeight).dp
         }
 
-        // Ajustamos el tamaño de la imagen (puedes modificar los valores de width y height)
         Image(
             painter = painterResource(id = R.drawable.mapeo),
             contentDescription = "Mapa del restaurante",
             modifier = Modifier
-                .width(700.dp)   // Ancho de 600 dp
-                .height(500.dp)  // Alto de 500 dp
+                .width(700.dp)
+                .height(500.dp)
         )
-
 
         mesas.forEach { mesa ->
             val id = mesa["id"] as Int
-            val habilitado = if (mesa["habilitado"] is Boolean) {
-                if (mesa["habilitado"] as Boolean) 1 else 0
-            } else {
-                mesa["habilitado"] as Int
+            val habilitado = (mesa["habilitado"] as? Boolean) ?: false // Asegurar que no sea null
+            val tieneEskaeraActiva = (mesa["tieneEskaeraActiva"] as? Boolean) ?: false // Asegurar que no sea null
+
+            val color = when {
+                tieneEskaeraActiva -> Color(0xFFFFA500) // Naranja
+                habilitado -> Color.Green // Verde
+                !habilitado -> Color.Red // Rojo
+                else -> Color.Gray // Gris (por defecto)
             }
 
-            val color = when (habilitado) {
-                1 -> Color.Green
-                0 -> Color.Red
-                else -> Color.Gray
-            }
             val posicionX = when (id) {
                 1 -> 5f
                 2 -> 40f
                 3 -> 75f
-                //4 -> 105f
                 4 -> 13f
                 5 -> 42f
                 6 -> 70f
                 7 -> 100f
-                //9 -> 81f
-                //10 -> 115f
                 8 -> 81f
                 9 -> 115f
-                //13 -> 147f
                 10 -> 65f
                 11 -> 98f
                 12 -> 131f
-                //17 -> 166f
                 13 -> 197f
                 14 -> 237f
                 15 -> 197f
@@ -803,20 +776,15 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
                 1 -> 70f
                 2 -> 70f
                 3 -> 70f
-                //4 -> 70f
                 4 -> 177f
                 5 -> 177f
                 6 -> 177f
                 7 -> 177f
-                // 9 -> 280f
-                //10 -> 280f
                 8 -> 380f
                 9 -> 380f
-                //13 -> 380f
                 10 -> 475f
                 11 -> 475f
                 12 -> 475f
-                // 17 -> 475f
                 13 -> 375f
                 14 -> 375f
                 15 -> 475f
@@ -824,7 +792,6 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
                 else -> 0f
             }
 
-            // Ajusta la posición de los círculos según el mapa
             MesaInteractiva(
                 modifier = Modifier
                     .absoluteOffset(
@@ -833,7 +800,7 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
                     ),
                 mesaNumero = id,
                 isSelected = selectedMesa == id,
-                onMesaClicked = { if (habilitado == 1) onMesaSelected(id) },
+                onMesaClicked = { if (habilitado || tieneEskaeraActiva) onMesaSelected(id) },
                 color = color
             )
         }
@@ -850,15 +817,10 @@ fun MesaInteractiva(
 ) {
     Box(
         modifier = modifier
-            .size(40.dp)  // Aumentado el tamaño
-            .background(color, shape = RoundedCornerShape(4.dp)) // Bordes redondeados
-            .border(
-                BorderStroke(2.dp, Color.Black),
-                shape = RoundedCornerShape(4.dp)
-            ) // Borde negro
-            .clickable(enabled = color == Color.Green) { // Solo seleccionable si está habilitado
-                onMesaClicked(mesaNumero)
-            },
+            .size(40.dp)
+            .background(color, shape = RoundedCornerShape(4.dp))
+            .border(BorderStroke(2.dp, Color.Black), shape = RoundedCornerShape(4.dp))
+            .clickable(enabled = color != Color.Red) { onMesaClicked(mesaNumero) },
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -874,66 +836,63 @@ fun obtenerEstadoMesas(navController: NavController, onMesasRecibidas: (List<Map
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/obtenerMesas.php"  // Cambia la URL al script correcto
-
+            val url = "http://10.0.2.2/obtenerMesas.php"
+            Log.d("ObtenerEstadoMesas", "Realizando solicitud GET a $url")
             val request = Request.Builder()
                 .url(url)
-                .get()  // Usamos GET porque no estamos enviando parámetros en esta solicitud
+                .get()
                 .build()
-
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string()
-
-            Log.d("ObtenerEstadoMesas", "Respuesta completa: $responseBody")
+            Log.d("ObtenerEstadoMesas", "Respuesta completa del servidor: $responseBody")
 
             if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
                 try {
                     val jsonResponse = JSONObject(responseBody)
-
+                    Log.d("ObtenerEstadoMesas", "JSON parseado: $jsonResponse")
                     if (jsonResponse.getBoolean("success")) {
                         val mesasArray = jsonResponse.getJSONArray("mesas")
                         val mesasList = mutableListOf<Map<String, Any>>()
-
                         for (i in 0 until mesasArray.length()) {
                             val mesa = mesasArray.getJSONObject(i)
                             val mesaData = mapOf(
                                 "id" to mesa.getInt("id"),
-                                "habilitado" to mesa.getBoolean("habilitado")
+                                "habilitado" to mesa.getBoolean("habilitado"),
+                                "tieneEskaeraActiva" to mesa.getBoolean("tieneEskaeraActiva")
                             )
+                            Log.d("ObtenerEstadoMesas", "Mesa procesada: $mesaData")
                             mesasList.add(mesaData)
                         }
-
                         withContext(Dispatchers.Main) {
                             onMesasRecibidas(mesasList)
                         }
                     } else {
                         val errorMessage = jsonResponse.getString("message")
-                        Log.d("ObtenerEstadoMesas", "Error del servidor: $errorMessage")
+                        Log.e("ObtenerEstadoMesas", "Error del servidor: $errorMessage")
                         withContext(Dispatchers.Main) {
                             Toast.makeText(navController.context, errorMessage, Toast.LENGTH_SHORT).show()
                         }
                     }
-
                 } catch (e: Exception) {
-                    Log.e("ObtenerEstadoMesas", "Error al parsear la respuesta: ${e.message}")
+                    Log.e("ObtenerEstadoMesas", "Error al parsear la respuesta JSON: ${e.message}")
                     withContext(Dispatchers.Main) {
                         Toast.makeText(navController.context, "Error de respuesta", Toast.LENGTH_SHORT).show()
                     }
                 }
             } else {
+                Log.e("ObtenerEstadoMesas", "Error de conexión o respuesta vacía")
                 withContext(Dispatchers.Main) {
                     Toast.makeText(navController.context, "Error de conexión", Toast.LENGTH_SHORT).show()
                 }
             }
-
         } catch (e: IOException) {
+            Log.e("ObtenerEstadoMesas", "Excepción de red: ${e.message}")
             withContext(Dispatchers.Main) {
                 Toast.makeText(navController.context, "Excepción: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
 }
-
 
 @Composable
 fun NuevaPantallaEskaeras(navController: NavController, username: String, mesaSeleccionada: String) {
