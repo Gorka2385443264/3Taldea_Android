@@ -444,7 +444,7 @@ fun SegundaPantalla(navController: NavController) {
         )
 
         Text(
-            text = "Saio hasi",
+            text = "Saioa hasi",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black
@@ -608,7 +608,7 @@ fun PantallaMapa(navController: NavController, username: String) {
             // Texto que muestra el número de mesa seleccionado
             if (selectedMesa != null) {
                 Text(
-                    text = "Nº$selectedMesa Mahaia aukeratu da.",
+                    text = "Mahaia: $selectedMesa aukeratu da",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Normal,
                     color = Color.Black,
@@ -616,7 +616,7 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             } else {
                 Text(
-                    text = "Oraindik ez da mahaia aukeratu",
+                    text = "Oraindik ez dgo mahaia aukeratu",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Normal,
                     color = Color.Black,
@@ -624,7 +624,6 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             }
 
-            // Aquí colocamos la imagen de mapeo que ocupará el espacio entre el logo y los botones
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1066,7 +1065,7 @@ fun EskaeraItem(
 
                 plato["nota_gehigarriak"]?.let {
                     Text(
-                        text = "Ohar gehigarria: $it",
+                        text = "Notak: $it",
                         color = Color.Gray,
                         fontSize = 14.sp
                     )
@@ -1074,7 +1073,7 @@ fun EskaeraItem(
 
                 plato["eskaeraOrdua"]?.let {
                     Text(
-                        text = "Eskaera-ordua: $it",
+                        text = "Ordua: $it",
                         color = Color.Gray,
                         fontSize = 14.sp
                     )
@@ -1203,7 +1202,7 @@ fun PantallaEditarEskaera(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Editatu la eskaera Nº$eskaeraZenb",
+                text = "Editatu eskaera: $eskaeraZenb",
                 fontSize = 24.sp,
                 color = Color.Black,
                 fontWeight = FontWeight.Bold
@@ -1233,7 +1232,7 @@ fun PantallaEditarEskaera(
                                         .padding(16.dp)
                                 ) {
                                     Text(
-                                        text = "Plato: ${plato.optString("izena")}",
+                                        text = "Platera: ${plato.optString("izena")}",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -1743,7 +1742,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "$username, $mesaSeleccionada. mahaia aukeratu du",
+                text = "$username - Mahaia: $mesaSeleccionada aukeratu du",
                 color = Color.White,
                 fontSize = 16.sp
             )
