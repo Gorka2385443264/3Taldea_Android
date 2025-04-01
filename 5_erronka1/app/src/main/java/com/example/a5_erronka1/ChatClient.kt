@@ -19,7 +19,7 @@ object ChatClient {
         setIzena(izena);
         withContext(Dispatchers.IO) {
             try {
-                socket = Socket("192.168.115.155", 5555)
+                socket = Socket("192.168.115.154", 5555)
                 input = BufferedReader(InputStreamReader(socket!!.getInputStream()))
                 output = PrintWriter(socket!!.getOutputStream(), true)
                 withContext(Dispatchers.Main) {

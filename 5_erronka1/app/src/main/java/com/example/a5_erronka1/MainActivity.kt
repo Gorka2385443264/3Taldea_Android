@@ -57,6 +57,7 @@ import java.io.File
 import java.io.FileOutputStream
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -65,6 +66,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.navigation.NavController
 import androidx.navigation.NavType
+import androidx.navigation.compose.currentBackStackEntryAsState
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -196,7 +198,7 @@ class MainActivity : ComponentActivity() {
                                 eskaeraZenb = eskaeraZenb,
                                 mesaSeleccionada = mesaSeleccionada,
                                 eskaeraDetalles = eskaeraDetalles,
-                                username = username // Pasar username a la función
+                                username = username,
                             )
                         } else {
                             Text("Error: No se pudo cargar la eskaera.")
@@ -491,7 +493,7 @@ fun iniciarSesion(email: String, password: String, navController: NavController)
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/login.php"
+            val url = "http://192.168.115.154/login.php"
 
             val formBody = FormBody.Builder()
                 .add("email", email)
@@ -692,7 +694,7 @@ fun PantallaMapa(navController: NavController, username: String) {
 }
 
 fun verificarPermisoTxat(username: String, onResult: (Boolean) -> Unit) {
-    val url = "http://10.0.2.2/verificar_permiso_chat.php?username=$username"
+    val url = "http://192.168.115.154/verificar_permiso_chat.php?username=$username"
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val result = URL(url).readText()
@@ -836,7 +838,7 @@ fun obtenerEstadoMesas(navController: NavController, onMesasRecibidas: (List<Map
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/obtenerMesas.php"
+            val url = "http://192.168.115.154/obtenerMesas.php"
             Log.d("ObtenerEstadoMesas", "Realizando solicitud GET a $url")
             val request = Request.Builder()
                 .url(url)
@@ -1055,7 +1057,7 @@ fun obtenerEskaerasPorMesa(mesaId: Int, callback: (Boolean, List<Map<String, Any
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/obtener_eskaeras.php?mesa_id=$mesaId"
+            val url = "http://192.168.115.154/obtener_eskaeras.php?mesa_id=$mesaId"
 
             val request = Request.Builder().url(url).get().build()
             val response = client.newCall(request).execute()
@@ -1130,23 +1132,32 @@ fun obtenerEskaerasPorMesa(mesaId: Int, callback: (Boolean, List<Map<String, Any
     }
 }
 
+
 @Composable
 fun PantallaEditarEskaera(
     navController: NavController,
     eskaeraZenb: Int,
     mesaSeleccionada: String,
     eskaeraDetalles: JSONObject,
-    username: String // Agregar username como parámetro
+    username: String // Parámetro añadido
 ) {
-    // Lista mutable para manejar los platos dinámicamente
-    var platos by remember { mutableStateOf(eskaeraDetalles.optJSONArray("platos")?.let { JSONArray(it.toString()) } ?: JSONArray()) }
+    var refresh by remember { mutableStateOf(false) }
+    var platos by remember(refresh) {
+        mutableStateOf(
+            eskaeraDetalles.optJSONArray("platos")?.let { JSONArray(it.toString()) }
+                ?: JSONArray()
+        )
+    }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF091725))
-            .padding(16.dp)
-    ) {
+    // Detector de cambios en la navegación para refrescar datos
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    LaunchedEffect(navBackStackEntry?.destination?.route) {
+        if (navBackStackEntry?.destination?.route == "editar_eskaera") {
+            refresh = !refresh
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF091725)).padding(16.dp)) {
         Image(
             painter = painterResource(id = R.drawable.fondo_the_bull),
             contentDescription = "Fondo",
@@ -1161,7 +1172,7 @@ fun PantallaEditarEskaera(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Editatu eskaera: $eskaeraZenb",
+                text = "Eskaera: $eskaeraZenb editatu.",
                 fontSize = 24.sp,
                 color = Color.Black,
                 fontWeight = FontWeight.Bold
@@ -1174,109 +1185,118 @@ fun PantallaEditarEskaera(
             )
             Spacer(modifier = Modifier.height(16.dp))
             LazyColumn(modifier = Modifier.weight(1f)) {
-                if (platos.length() > 0) {
-                    for (i in 0 until platos.length()) {
-                        val plato = platos.getJSONObject(i)
-                        item {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .background(Color.White, RoundedCornerShape(8.dp))
-                                        .padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Platera: ${plato.optString("izena")}",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "Kopurua: ${maxOf(plato.optInt("cantidad"), 1)}", // Cantidad mínima de 1
-                                        fontSize = 14.sp
-                                    )
-                                    Text(
-                                        text = "Prezioa: ${plato.optDouble("prezioa")}€",
-                                        fontSize = 14.sp
-                                    )
-                                    Text(
-                                        text = "Ohar gehigarria: ${plato.optString("nota_gehigarriak")}",
-                                        fontSize = 14.sp
-                                    )
+                items(platos.length()) { i ->
+                    val plato = platos.getJSONObject(i)
+                    PlatoItem(plato, i) { index ->
+                        val izena = plato.optString("izena")
+                        eliminarPlatoDeBBDD(izena, eskaeraZenb) { success, message ->
+                            if (success) {
+                                platos = JSONArray().apply {
+                                    for (j in 0 until platos.length()) {
+                                        if (j != index) put(platos.getJSONObject(j))
+                                    }
                                 }
-                                // Botón de eliminar
-                                Button(
-                                    onClick = {
-                                        val izena = plato.optString("izena")
-                                        eliminarPlatoDeBBDD(izena, eskaeraZenb) { success ->
-                                            if (success) {
-                                                // Crear una nueva lista sin el plato eliminado
-                                                val nuevaLista = JSONArray()
-                                                for (j in 0 until platos.length()) {
-                                                    if (j != i) {
-                                                        nuevaLista.put(platos.getJSONObject(j))
-                                                    }
-                                                }
-                                                platos = nuevaLista
-                                            } else {
-                                                Toast.makeText(navController.context, "Error al eliminar el plato", Toast.LENGTH_SHORT).show()
-                                            }
-                                        }
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Ezabatu",
-                                        tint = Color.White
-                                    )
-                                }
+                            } else {
+                                Toast.makeText(
+                                    navController.context,
+                                    message ?: "Errorea platera ezabatzean",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             }
                         }
                     }
-                } else {
-                    item {
-                        Text(
-                            text = "Ez dago xehetasunik eskuragarri",
-                            color = Color.Red
-                        )
-                    }
+                }
+                if (platos.length() == 0) {
+                    item { Text("Ez dago xehetasunik eskuragarri") }
                 }
             }
-            // Botón "Volver"
+        }
+        // Row de botones modificado
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Button(
                 onClick = { navController.popBackStack() },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
             ) {
-                Text(text = "Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
-            // Botón "Agregar un plato"
+
             Button(
                 onClick = {
-                    navController.navigate("agregarPlato/$username/$mesaSeleccionada/$eskaeraZenb")
+                    navController.navigate("agregarPlato/${username}/${mesaSeleccionada}/${eskaeraZenb}")
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(top = 16.dp)
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
             ) {
-                Text(text = "Plater bat gehitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Gehitu Platoa", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
-fun eliminarPlatoDeBBDD(izena: String, eskaeraZenb: Int, onResult: (Boolean) -> Unit) {
+@Composable
+private fun PlatoItem(
+    plato: JSONObject,
+    index: Int,
+    onDelete: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .background(Color.White, RoundedCornerShape(8.dp))
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Platera: ${plato.optString("izena")}",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Kantitatea: ${maxOf(plato.optInt("cantidad"), 1)}",
+                fontSize = 14.sp
+            )
+            Text(
+                text = "Prezioa: ${plato.optDouble("prezioa")}€",
+                fontSize = 14.sp
+            )
+            Text(
+                text = "Nota: ${plato.optString("nota_gehigarriak")}",
+                fontSize = 14.sp
+            )
+        }
+        Button(
+            onClick = { onDelete(index) },
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+            modifier = Modifier.size(48.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Ezabatu",
+                tint = Color.White
+            )
+        }
+    }
+}
+
+fun eliminarPlatoDeBBDD(
+    izena: String,
+    eskaeraZenb: Int,
+    onResult: (Boolean, String?) -> Unit
+) {
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/eliminar_plato.php"
+            val url = "http://192.168.115.154/eliminar_plato.php"
             val jsonBody = JSONObject().apply {
                 put("izena", izena)
                 put("eskaeraZenb", eskaeraZenb)
@@ -1285,31 +1305,27 @@ fun eliminarPlatoDeBBDD(izena: String, eskaeraZenb: Int, onResult: (Boolean) -> 
                 "application/json; charset=utf-8".toMediaType(),
                 jsonBody.toString()
             )
-            val request = Request.Builder()
-                .url(url)
-                .post(requestBody)
-                .build()
+            val request = Request.Builder().url(url).post(requestBody).build()
             val response = client.newCall(request).execute()
             if (response.isSuccessful) {
-                val responseBody = response.body?.string() ?: ""
-                val jsonResponse = JSONObject(responseBody)
-                val success = jsonResponse.optBoolean("success", false)
+                val jsonResponse = JSONObject(response.body?.string() ?: "")
                 withContext(Dispatchers.Main) {
-                    onResult(success)
+                    onResult(jsonResponse.optBoolean("success", false), jsonResponse.optString("message"))
                 }
             } else {
                 withContext(Dispatchers.Main) {
-                    onResult(false)
+                    onResult(false, "Errorea zerbitzariaren erantzunean")
                 }
             }
         } catch (e: Exception) {
             withContext(Dispatchers.Main) {
-                onResult(false)
+                onResult(false, "Konexio-errorea: ${e.message}")
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PantallaAgregarPlato(
     navController: NavController,
@@ -1332,51 +1348,43 @@ fun PantallaAgregarPlato(
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val client = OkHttpClient()
-                val url = "http://10.0.2.2/menu.php"
+                val url = "http://192.168.115.154/menu.php"
                 val request = Request.Builder().url(url).get().build()
                 val response = client.newCall(request).execute()
-                val responseBody = response.body?.string()
-                Log.d("PantallaAgregarPlato", "Respuesta del servidor: $responseBody") // Log de la respuesta del menú
-
-                if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
-                    val jsonResponse = JSONObject(responseBody)
-                    if (jsonResponse.getBoolean("success")) {
-                        // 🔴 Cambiar "data" por "menu"
+                if (response.isSuccessful) {
+                    val jsonResponse = JSONObject(response.body?.string() ?: "")
+                    if (jsonResponse.optBoolean("success", false)) {
                         val menuArray = jsonResponse.getJSONArray("menu")
                         val items = mutableListOf<Map<String, Any>>()
-
                         for (i in 0 until menuArray.length()) {
                             val item = menuArray.getJSONObject(i)
-                            val plato = mapOf(
+                            items.add(mapOf(
                                 "id" to item.getInt("id"),
                                 "izena" to item.getString("izena"),
                                 "prezioa" to item.getString("prezioa"),
                                 "kategoria" to item.optString("kategoria", "Categoría desconocida"),
                                 "deskribapena" to item.getString("deskribapena")
-                            )
-                            items.add(plato)
+                            ))
                         }
-
-                        withContext(Dispatchers.Main) {
-                            platos = items
-                        }
+                        withContext(Dispatchers.Main) { platos = items }
                     } else {
                         withContext(Dispatchers.Main) {
-                            errorMessage = jsonResponse.getString("message")
+                            errorMessage = jsonResponse.optString("message", "Errorea menua eskuratzean")
                         }
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        errorMessage = "Error de conexión: ${response.message}"
+                        errorMessage = "Errorea: ${response.code}"
                     }
                 }
-            } catch (e: IOException) {
+            } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     errorMessage = "Excepción: ${e.message}"
                 }
             }
         }
     }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1415,11 +1423,12 @@ fun PantallaAgregarPlato(
             } else {
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     val categoriasOrdenadas = listOf("Edaria", "Lehenengo platera", "Bigarren platera", "Postrea")
-                    val categorias = platos.groupBy {
-                        (it["kategoria"] as? String) ?: "Categoría desconocida"
-                    }.toSortedMap(compareBy { categoriasOrdenadas.indexOf(it).takeIf { it != -1 } ?: Int.MAX_VALUE })
-                    categorias.forEach { (categoria, platosDeCategoria) ->
-                        item {
+                    val categorias = platos.groupBy { it["kategoria"] as String }
+                        .toSortedMap(compareBy { categoria ->
+                            categoriasOrdenadas.indexOf(categoria).takeIf { it != -1 } ?: Int.MAX_VALUE
+                        })
+                    categorias.forEach { (categoria, items) ->
+                        stickyHeader {
                             Text(
                                 text = categoria,
                                 color = Color.Black,
@@ -1428,13 +1437,14 @@ fun PantallaAgregarPlato(
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
                         }
-                        items(platosDeCategoria) { plato ->
+                        items(items) { plato ->
                             val nombrePlato = plato["izena"] as String
                             val precioPlato = plato["prezioa"] as String
                             val descripcion = plato["deskribapena"] as String
                             val cantidadActual = cantidades[nombrePlato] ?: 0
-                            val platoId = plato["id"] as? Int ?: -1
+                            val platoId = plato["id"] as Int
                             var showPopup by remember { mutableStateOf(false) }
+
                             if (showPopup) {
                                 AlertDialog(
                                     onDismissRequest = { showPopup = false },
@@ -1450,6 +1460,7 @@ fun PantallaAgregarPlato(
                                     }
                                 )
                             }
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -1487,30 +1498,20 @@ fun PantallaAgregarPlato(
                                     Spacer(modifier = Modifier.width(16.dp))
                                     Button(
                                         onClick = {
-                                            if (platoId != -1) {
-                                                CoroutineScope(Dispatchers.IO).launch {
-                                                    try {
-                                                        val client = OkHttpClient()
-                                                        val url = "http://10.0.2.2/almazena.php?platera_id=$platoId"
-                                                        val request = Request.Builder().url(url).get().build()
-                                                        val response = client.newCall(request).execute()
-                                                        val responseBody = response.body?.string()
-                                                        if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
-                                                            val jsonResponse = JSONObject(responseBody)
-                                                            if (jsonResponse.getBoolean("success")) {
-                                                                withContext(Dispatchers.Main) {
-                                                                    cantidades[nombrePlato] = cantidadActual + 1
-                                                                }
-                                                            } else {
-                                                                withContext(Dispatchers.Main) {
-                                                                    errorMessage = jsonResponse.optString("message", "Error desconocido")
-                                                                }
-                                                            }
-                                                        }
-                                                    } catch (e: Exception) {
+                                            CoroutineScope(Dispatchers.IO).launch {
+                                                try {
+                                                    val client = OkHttpClient()
+                                                    val url = "http://192.168.115.154/almazena.php?platera_id=$platoId"
+                                                    val request = Request.Builder().url(url).get().build()
+                                                    val response = client.newCall(request).execute()
+                                                    if (response.isSuccessful) {
                                                         withContext(Dispatchers.Main) {
-                                                            errorMessage = "Error de conexión: ${e.message}"
+                                                            cantidades[nombrePlato] = cantidadActual + 1
                                                         }
+                                                    }
+                                                } catch (e: Exception) {
+                                                    withContext(Dispatchers.Main) {
+                                                        errorMessage = "Errorea: ${e.message}"
                                                     }
                                                 }
                                             }
@@ -1544,25 +1545,24 @@ fun PantallaAgregarPlato(
             Button(
                 onClick = {
                     val selectedItems = cantidades.filterValues { it > 0 }
-                        .mapNotNull { plato ->
-                            val platoData = platos.find { it["izena"] == plato.key }
-                            val platoId = platoData?.get("id") as? Int ?: return@mapNotNull null
-                            val precio = platoData["prezioa"] as? String ?: "0"
-                            val nombrePlato = plato.key
-                            "$platoId:$nombrePlato:${plato.value}:$precio"
+                        .mapNotNull { (nombre, cantidad) ->
+                            platos.find { it["izena"] == nombre }?.let { plato ->
+                                "${plato["id"]}:$nombre:$cantidad:${plato["prezioa"]}"
+                            }
                         }
                         .joinToString(";")
-                    Log.d("PantallaAgregarPlato", "Hautatutako elementuak: $selectedItems") // Log de los elementos seleccionados
 
                     if (selectedItems.isEmpty()) {
                         errorMessage = "Plater bat aukeratu behar duzu, gutxienez, jarraitzeko."
                     } else {
-                        insertarPlatoEnEskaera(mesaSeleccionada.toInt(), eskaeraZenb, selectedItems) { success ->
+                        insertarPlatoEnEskaera(
+                            mesaId = mesaSeleccionada.toInt(),
+                            eskaeraZenb = eskaeraZenb,
+                            selectedItems = selectedItems
+                        ) { success ->
                             if (success) {
-                                Log.d("PantallaAgregarPlato", "Platera behar bezala erantsita") // Log de éxito
                                 navController.popBackStack()
                             } else {
-                                Log.e("PantallaAgregarPlato", "Errorea platera gehitzean") // Log de error
                                 errorMessage = "Errorea platera gehitzean."
                             }
                         }
@@ -1585,46 +1585,26 @@ fun insertarPlatoEnEskaera(
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/insertar_plato.php"
+            val url = "http://192.168.115.154/insertar_plato.php"
             val jsonBody = JSONObject().apply {
                 put("mesa_id", mesaId)
                 put("eskaeraZenb", eskaeraZenb)
-                put("platos", JSONArray(selectedItems.split(";").map { it }))
+                put("platos", JSONArray(selectedItems.split(";")))
             }
-            Log.d("InsertarPlato", "Solicitud a enviar: $jsonBody") // Log de la solicitud
-
             val requestBody = RequestBody.create(
                 "application/json; charset=utf-8".toMediaType(),
                 jsonBody.toString()
             )
-            val request = Request.Builder()
-                .url(url)
-                .post(requestBody)
-                .build()
-
-            Log.d("InsertarPlato", "Enviando solicitud al servidor...") // Log antes de enviar la solicitud
+            val request = Request.Builder().url(url).post(requestBody).build()
             val response = client.newCall(request).execute()
-
             if (response.isSuccessful) {
-                val responseBody = response.body?.string() ?: ""
-                Log.d("InsertarPlato", "Respuesta del servidor: $responseBody") // Log de la respuesta del servidor
-
-                val jsonResponse = JSONObject(responseBody)
-                val success = jsonResponse.optBoolean("success", false)
-                withContext(Dispatchers.Main) {
-                    onResult(success)
-                }
+                val jsonResponse = JSONObject(response.body?.string() ?: "")
+                withContext(Dispatchers.Main) { onResult(jsonResponse.optBoolean("success", false)) }
             } else {
-                Log.e("InsertarPlato", "Error en la respuesta del servidor: ${response.message}") // Log de errores del servidor
-                withContext(Dispatchers.Main) {
-                    onResult(false)
-                }
+                withContext(Dispatchers.Main) { onResult(false) }
             }
         } catch (e: Exception) {
-            Log.e("InsertarPlato", "Excepción durante la inserción: ${e.message}") // Log de excepciones
-            withContext(Dispatchers.Main) {
-                onResult(false)
-            }
+            withContext(Dispatchers.Main) { onResult(false) }
         }
     }
 }
@@ -1640,7 +1620,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val client = OkHttpClient()
-                val url = "http://10.0.2.2/menu.php"
+                val url = "http://192.168.115.154/menu.php"
                 val request = Request.Builder().url(url).get().build()
                 val response = client.newCall(request).execute()
                 val responseBody = response.body?.string()
@@ -1649,7 +1629,6 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                 if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
                     val jsonResponse = JSONObject(responseBody)
                     if (jsonResponse.getBoolean("success")) {
-                        // 🔴 Clave "menu" en lugar de "data"
                         val menuArray = jsonResponse.getJSONArray("menu")
                         val items = mutableListOf<Map<String, Any>>()
 
@@ -2083,7 +2062,7 @@ fun insertarComandaEnBBDD(
     onResult: (Boolean) -> Unit
 ) {
     val client = OkHttpClient()
-    val url = "http://10.0.2.2/insertar_comanda.php"
+    val url = "http://192.168.115.154/insertar_comanda.php"
 
     val jsonBody = JSONObject().apply {
         put("mesa_id", mesaSeleccionada.toIntOrNull() ?: 0)
@@ -2141,7 +2120,7 @@ fun insertarComandaEnBBDD(
 suspend fun obtenerIdUsuario(username: String): Int? {
     return withContext(Dispatchers.IO) {
         val client = OkHttpClient()
-        val url = "http://10.0.2.2/obtener_id_usuario.php"
+        val url = "http://192.168.115.154/obtener_id_usuario.php"
 
         val jsonBody = JSONObject().apply {
             put("username", username)
