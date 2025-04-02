@@ -613,7 +613,7 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             } else {
                 Text(
-                    text = "ez dgo mahaia aukeratu",
+                    text = "Ez dago mahaia aukeratu",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Normal,
                     color = Color.Black,
@@ -755,42 +755,42 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
             }
 
             val posicionX = when (id) {
-                1 -> 5f
-                2 -> 40f
-                3 -> 75f
-                4 -> 13f
-                5 -> 42f
-                6 -> 70f
-                7 -> 100f
-                8 -> 81f
-                9 -> 115f
-                10 -> 65f
-                11 -> 98f
-                12 -> 131f
-                13 -> 197f
-                14 -> 237f
-                15 -> 197f
-                16 -> 237f
+                1 -> 25f
+                2 -> 65f
+                3 -> 105f
+                4 -> 30f
+                5 -> 65f
+                6 -> 103f
+                7 -> 139f
+                8 -> 115f
+                9 -> 157f
+                10 -> 96f
+                11 -> 137f
+                12 -> 180f
+                13 -> 260f
+                14 -> 310f
+                15 -> 260f
+                16 -> 310f
                 else -> 0f
             }
 
             val posicionY = when (id) {
-                1 -> 70f
-                2 -> 70f
-                3 -> 70f
-                4 -> 177f
-                5 -> 177f
-                6 -> 177f
-                7 -> 177f
-                8 -> 380f
-                9 -> 380f
-                10 -> 475f
-                11 -> 475f
-                12 -> 475f
-                13 -> 375f
-                14 -> 375f
-                15 -> 475f
-                16 -> 475f
+                1 -> 0f
+                2 -> 0f
+                3 -> 0f
+                4 -> 160f
+                5 -> 160f
+                6 -> 160f
+                7 -> 160f
+                8 -> 470f
+                9 -> 470f
+                10 -> 607f
+                11 -> 607f
+                12 -> 607f
+                13 -> 440f
+                14 -> 440f
+                15 -> 613f
+                16 -> 613f
                 else -> 0f
             }
 
