@@ -60,6 +60,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.draw.clip
@@ -73,6 +75,7 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.io.FileWriter
 import java.io.IOException
+import java.net.URLEncoder
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -103,13 +106,13 @@ class MainActivity : ComponentActivity() {
                             navArgument("username") { defaultValue = "Usuario" },
                             navArgument("mesaSeleccionada") { defaultValue = "Mesa 1" }
                         )
-                    ){ backStackEntry ->
-                        username = backStackEntry.arguments?.getString("username") ?: "Usuario"
-                        val mesaSeleccionada =
-                            backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
+                    ) { backStackEntry ->
+                        val localUsername = backStackEntry.arguments?.getString("username") ?: "Usuario" // Cambio aquí
+                        val mesaSeleccionada = backStackEntry.arguments?.getString("mesaSeleccionada") ?: "Mesa 1"
+
                         PantallaMenu(
                             navController = navController,
-                            username = username,
+                            username = localUsername, // Usar la variable local
                             mesaSeleccionada = mesaSeleccionada
                         )
                     }
@@ -138,7 +141,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     } else {
                                         groupedItems[nombre] = mutableMapOf(
-                                            "id" to item.getInt("id"),
+                                            "platera_id" to item.getInt("platera_id"),
                                             "nombre" to nombre,
                                             "cantidad" to cantidad,
                                             "precio" to precio,
@@ -331,7 +334,7 @@ fun PantallaChat(izena: String, navController: NavController) {
                 .verticalScroll(rememberScrollState())
         ) {
             chatMessages.forEach { msg ->
-                val sender = msg.substringBefore(">")
+                val sender = msg.substringBefore(":")
 
                 Box(
                     modifier = Modifier
@@ -380,7 +383,7 @@ fun PantallaChat(izena: String, navController: NavController) {
             onClick = {
                 if (message.isNotEmpty()) {
                     coroutineScope.launch {
-                        val formattedMessage = "$izena> $message"
+                        val formattedMessage = "$izena: $message"
                         ChatClient.sendMessage(formattedMessage)
                         withContext(Dispatchers.Main) {
                             synchronized(chatMessages) {
@@ -493,7 +496,7 @@ fun iniciarSesion(email: String, password: String, navController: NavController)
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://192.168.115.154/login.php"
+            val url = "http://10.0.2.2/login.php"
 
             val formBody = FormBody.Builder()
                 .add("email", email)
@@ -522,7 +525,9 @@ fun iniciarSesion(email: String, password: String, navController: NavController)
                         val errorMessage = jsonResponse.getString("message")
                         withContext(Dispatchers.Main) {
                             // Mostrar mensaje de error del servidor, por ejemplo: "Usuario desactivado"
-                            Toast.makeText(navController.context, errorMessage, Toast.LENGTH_SHORT).show()
+                            Toast.makeText(/* context = */ navController.context, /* text = */
+                                errorMessage, /* duration = */
+                                Toast.LENGTH_SHORT).show()
                         }
                     }
                 } catch (e: JSONException) {
@@ -613,7 +618,7 @@ fun PantallaMapa(navController: NavController, username: String) {
                 )
             } else {
                 Text(
-                    text = "Ez dago mahaia aukeratu",
+                    text = "Ez dago mahairik aukeratuta",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Normal,
                     color = Color.Black,
@@ -694,7 +699,7 @@ fun PantallaMapa(navController: NavController, username: String) {
 }
 
 fun verificarPermisoTxat(username: String, onResult: (Boolean) -> Unit) {
-    val url = "http://192.168.115.154/verificar_permiso_chat.php?username=$username"
+    val url = "http://10.0.2.2/verificar_permiso_chat.php?username=$username"
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val result = URL(url).readText()
@@ -744,14 +749,12 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
 
         mesas.forEach { mesa ->
             val id = mesa["id"] as Int
-            val habilitado = (mesa["habilitado"] as? Boolean) ?: false // Asegurar que no sea null
-            val tieneEskaeraActiva = (mesa["tieneEskaeraActiva"] as? Boolean) ?: false // Asegurar que no sea null
-
+            val habilitado = (mesa["habilitado"] as? Boolean) ?: false
+            val tieneEskaeraActiva = (mesa["tieneEskaeraActiva"] as? Boolean) ?: false
             val color = when {
                 tieneEskaeraActiva -> Color(0xFFFFA500) // Naranja
                 habilitado -> Color.Green // Verde
-                !habilitado -> Color.Red // Rojo
-                else -> Color.Gray // Gris (por defecto)
+                else -> Color.Red // Rojo
             }
 
             val posicionX = when (id) {
@@ -802,7 +805,11 @@ fun MapaDeMesas(selectedMesa: Int?, mesas: List<Map<String, Any>>, onMesaSelecte
                     ),
                 mesaNumero = id,
                 isSelected = selectedMesa == id,
-                onMesaClicked = { if (habilitado || tieneEskaeraActiva) onMesaSelected(id) },
+                onMesaClicked = {
+                    if (habilitado || tieneEskaeraActiva) {
+                        onMesaSelected(id)
+                    }
+                },
                 color = color
             )
         }
@@ -838,7 +845,7 @@ fun obtenerEstadoMesas(navController: NavController, onMesasRecibidas: (List<Map
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://192.168.115.154/obtenerMesas.php"
+            val url = "http://10.0.2.2/obtenerMesas.php"
             Log.d("ObtenerEstadoMesas", "Realizando solicitud GET a $url")
             val request = Request.Builder()
                 .url(url)
@@ -901,12 +908,14 @@ fun NuevaPantallaEskaeras(navController: NavController, username: String, mesaSe
     var eskaeras by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var mesaTieneEskaeraActiva by remember { mutableStateOf(false) } // Nuevo estado
 
     // Obtener eskaeras al cargar la pantalla
     LaunchedEffect(Unit) {
         obtenerEskaerasPorMesa(mesaSeleccionada.toInt()) { success, result ->
             if (success) {
                 eskaeras = result
+                mesaTieneEskaeraActiva = result.isNotEmpty() // Actualizar estado de eskaera activa
             } else {
                 error = result.firstOrNull()?.get("error") as? String ?: "Error desconocido"
             }
@@ -926,7 +935,6 @@ fun NuevaPantallaEskaeras(navController: NavController, username: String, mesaSe
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
         )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -939,9 +947,7 @@ fun NuevaPantallaEskaeras(navController: NavController, username: String, mesaSe
                 color = Color.Black,
                 fontWeight = FontWeight.Bold
             )
-
             Spacer(modifier = Modifier.height(16.dp))
-
             when {
                 isLoading -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
@@ -960,27 +966,36 @@ fun NuevaPantallaEskaeras(navController: NavController, username: String, mesaSe
                                 onEditarClick = { eskaeraZenb ->
                                     val eskaeraSeleccionada = eskaeras.find { it["eskaeraZenb"] == eskaeraZenb }
                                     if (eskaeraSeleccionada != null) {
-                                        navController.navigate("editarEskaera/$eskaeraZenb/${mesaSeleccionada}/${Uri.encode(JSONObject(eskaeraSeleccionada).toString())}/$username")                                    }
+                                        navController.navigate("editarEskaera/$eskaeraZenb/${mesaSeleccionada}/${Uri.encode(JSONObject(eskaeraSeleccionada).toString())}/$username")
+                                    }
                                 }
                             )
                         }
                     }
                 }
             }
-
             Button(
                 onClick = {
-                    navController.navigate("pantallaMenu/$username/$mesaSeleccionada")
+                    if (!mesaTieneEskaeraActiva) { // Habilitar solo si no hay eskaera activa
+                        Log.d("Navegacion", "Botón 'Eskaera berria sortu' presionado")
+                        navController.navigate("pantallaMenu/$username/$mesaSeleccionada")
+                    } else {
+                        Toast.makeText(
+                            navController.context,
+                            "La mesa ya tiene una eskaera activa.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
+                colors = ButtonDefaults.buttonColors(containerColor = if (mesaTieneEskaeraActiva) Color.Gray else Color(0xFF8B4513)),
+                enabled = !mesaTieneEskaeraActiva // Deshabilitar si hay eskaera activa
             ) {
                 Text("Eskaera berria sortu", fontSize = 16.sp)
             }
         }
-
         Button(
             onClick = { navController.popBackStack() },
             modifier = Modifier
@@ -1057,7 +1072,7 @@ fun obtenerEskaerasPorMesa(mesaId: Int, callback: (Boolean, List<Map<String, Any
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://192.168.115.154/obtener_eskaeras.php?mesa_id=$mesaId"
+            val url = "http://10.0.2.2/obtener_eskaeras.php?mesa_id=$mesaId"
 
             val request = Request.Builder().url(url).get().build()
             val response = client.newCall(request).execute()
@@ -1232,7 +1247,7 @@ fun PantallaEditarEskaera(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
             ) {
-                Text("Gehitu Platoa", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Gehitu platera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -1296,7 +1311,7 @@ fun eliminarPlatoDeBBDD(
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://192.168.115.154/eliminar_plato.php"
+            val url = "http://10.0.2.2/eliminar_plato.php"
             val jsonBody = JSONObject().apply {
                 put("izena", izena)
                 put("eskaeraZenb", eskaeraZenb)
@@ -1348,7 +1363,7 @@ fun PantallaAgregarPlato(
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val client = OkHttpClient()
-                val url = "http://192.168.115.154/menu.php"
+                val url = "http://10.0.2.2/menu.php"
                 val request = Request.Builder().url(url).get().build()
                 val response = client.newCall(request).execute()
                 if (response.isSuccessful) {
@@ -1501,15 +1516,18 @@ fun PantallaAgregarPlato(
                                             CoroutineScope(Dispatchers.IO).launch {
                                                 try {
                                                     val client = OkHttpClient()
-                                                    val url = "http://192.168.115.154/almazena.php?platera_id=$platoId"
+                                                    val url = "http://10.0.2.2/almazena.php?platera_id=$platoId"
+                                                    Log.d("HTTP_Request", "URL: $url") // Registro de la URL
                                                     val request = Request.Builder().url(url).get().build()
                                                     val response = client.newCall(request).execute()
+                                                    Log.d("HTTP_Response", "Código: ${response.code}, Mensaje: ${response.body?.string()}") // Registro de la respuesta
                                                     if (response.isSuccessful) {
                                                         withContext(Dispatchers.Main) {
                                                             cantidades[nombrePlato] = cantidadActual + 1
                                                         }
                                                     }
                                                 } catch (e: Exception) {
+                                                    Log.e("HTTP_Error", "Excepción: ${e.message}") // Registro de errores
                                                     withContext(Dispatchers.Main) {
                                                         errorMessage = "Errorea: ${e.message}"
                                                     }
@@ -1585,7 +1603,7 @@ fun insertarPlatoEnEskaera(
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://192.168.115.154/insertar_plato.php"
+            val url = "http://10.0.2.2/insertar_plato.php"
             val jsonBody = JSONObject().apply {
                 put("mesa_id", mesaId)
                 put("eskaeraZenb", eskaeraZenb)
@@ -1609,180 +1627,371 @@ fun insertarPlatoEnEskaera(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PantallaMenu(navController: NavController, username: String, mesaSeleccionada: String) {
     var platos by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
     val cantidades = remember { mutableStateMapOf<String, Int>() }
-    var descripcionPlato by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
+    // Cargar datos del servidor
     LaunchedEffect(Unit) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
+        try {
+            withContext(Dispatchers.IO) {
+                Log.d("PantallaMenu", "Iniciando carga de datos desde el servidor")
                 val client = OkHttpClient()
-                val url = "http://192.168.115.154/menu.php"
+                val url = "http://10.0.2.2/menu.php"
                 val request = Request.Builder().url(url).get().build()
                 val response = client.newCall(request).execute()
                 val responseBody = response.body?.string()
-                Log.d("RespuestaServidor", "Response Body: $responseBody")
 
                 if (response.isSuccessful && !responseBody.isNullOrEmpty()) {
                     val jsonResponse = JSONObject(responseBody)
-                    if (jsonResponse.getBoolean("success")) {
-                        val menuArray = jsonResponse.getJSONArray("menu")
-                        val items = mutableListOf<Map<String, Any>>()
 
-                        for (i in 0 until menuArray.length()) {
-                            val item = menuArray.getJSONObject(i)
-                            val plato = mapOf(
-                                "id" to item.getInt("id"),
-                                "izena" to item.getString("izena"),
-                                "prezioa" to item.getString("prezioa"),
-                                "kategoria" to item.optString("kategoria", "Categoría desconocida"),
-                                "deskribapena" to item.getString("deskribapena")
-                            )
-                            items.add(plato)
+                    if (jsonResponse.optBoolean("success", false)) {
+                        val menuArray = jsonResponse.optJSONArray("menu")
+
+                        if (menuArray != null && menuArray.length() > 0) {
+                            val items = mutableListOf<Map<String, Any>>()
+
+                            for (i in 0 until menuArray.length()) {
+                                val item = menuArray.getJSONObject(i)
+                                if (item.optInt("menu", 0) == 1) {
+                                    items.add(mapOf(
+                                        "id" to item.optInt("id", -1),
+                                        "izena" to item.optString("izena", "Sin nombre"),
+                                        "prezioa" to item.optString("prezioa", "0"),
+                                        "deskribapena" to item.optString("deskribapena", ""),
+                                        "kategoria" to item.optString("kategoria", "Categoría desconocida")
+                                    ))
+                                }
+                            }
+
+                            withContext(Dispatchers.Main) {
+                                platos = items
+                                isLoading = false
+                                Log.d("PantallaMenu", "Datos cargados correctamente: ${items.size} platos")
+                            }
+                        } else {
+                            withContext(Dispatchers.Main) {
+                                errorMessage = "La lista de menú está vacía"
+                                isLoading = false
+                            }
                         }
-                        withContext(Dispatchers.Main) { platos = items }
                     } else {
+                        val errorMsg = jsonResponse.optString("message", "Error desconocido")
                         withContext(Dispatchers.Main) {
-                            errorMessage = jsonResponse.getString("message")
+                            errorMessage = "Error del servidor: $errorMsg"
+                            isLoading = false
                         }
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        errorMessage = "Error de conexión: ${response.message}"
+                        errorMessage = "Error en la respuesta del servidor: ${response.code}"
+                        isLoading = false
                     }
                 }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    errorMessage = "Excepción: ${e.message}"
-                }
+            }
+        } catch (e: Exception) {
+            Log.e("PantallaMenu", "Error cargando menú: ${e.message}")
+            withContext(Dispatchers.Main) {
+                errorMessage = "Error: ${e.message}"
+                isLoading = false
             }
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF091725))
-    ) {
+    // UI Principal
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Fondo
+        Image(
+            painter = painterResource(id = R.drawable.fondo_the_bull),
+            contentDescription = "Fondo",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 64.dp),
-            verticalArrangement = Arrangement.Top
+                .padding(16.dp)
         ) {
-            Text(
-                text = "Menua",
-                fontSize = 24.sp,
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "$username - Mahaia: $mesaSeleccionada aukeratu du",
-                color = Color.White,
-                fontSize = 16.sp
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (errorMessage != null) {
+            // Cabecera
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Text(
-                    text = errorMessage!!,
-                    color = Color.Red,
+                    text = "Menua",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Text(
+                    text = "$username - Mahaia: $mesaSeleccionada",
                     fontSize = 16.sp,
-                    modifier = Modifier.padding(vertical = 8.dp).fillMaxWidth().background(Color(0x44FF0000)).padding(8.dp)
+                    color = Color.Gray
                 )
             }
 
-            if (platos.isEmpty()) {
-                CircularProgressIndicator(color = Color(0xFFBA450D))
-            } else {
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    val categoriasOrdenadas = listOf("Edaria", "Lehenengo platera", "Bigarren platera", "Postrea")
-                    val categorias = platos.groupBy {
-                        (it["kategoria"] as? String) ?: "Categoría desconocida"
-                    }.toSortedMap(compareBy { categoriasOrdenadas.indexOf(it).takeIf { it != -1 } ?: Int.MAX_VALUE })
+            Spacer(modifier = Modifier.height(16.dp))
 
-                    categorias.forEach { (categoria, platosCategoria) ->
-                        item {
+            // Contenido principal
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                if (errorMessage != null) {
+                    item {
+                        Text(
+                            text = errorMessage!!,
+                            color = Color.Red,
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+                }
+
+                if (isLoading) {
+                    item {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .wrapContentWidth(Alignment.CenterHorizontally)
+                        )
+                    }
+                } else {
+                    val categoriasOrdenadas = listOf("Edaria", "Lehenengo platera", "Bigarren platera", "Postrea")
+
+                    val categorias = platos.groupBy {
+                        it["kategoria"] as? String ?: "Categoría desconocida"
+                    }.toSortedMap(compareBy { categoria ->
+                        categoriasOrdenadas.indexOf(categoria).takeIf { it != -1 } ?: Int.MAX_VALUE
+                    })
+
+                    categorias.forEach { (categoria, items) ->
+                        stickyHeader {
                             Text(
                                 text = categoria,
+                                color = Color.Black,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
                         }
 
-                        items(platosCategoria) { plato ->
-                            val nombrePlato = plato["izena"] as String
-                            val precioPlato = plato["prezioa"] as String
+                        items(items) { plato ->
+                            val id = plato["id"] as Int
+                            val nombre = plato["izena"] as String
+                            val precio = plato["prezioa"] as String
                             val descripcion = plato["deskribapena"] as String
-                            val cantidadActual = cantidades[nombrePlato] ?: 0
+                            val cantidadActual = cantidades[nombre] ?: 0
+
+                            var showPopup by remember { mutableStateOf(false) }
+
+                            if (showPopup) {
+                                AlertDialog(
+                                    onDismissRequest = { showPopup = false },
+                                    title = { Text(nombre, fontWeight = FontWeight.Bold) },
+                                    text = { Text(descripcion) },
+                                    confirmButton = {
+                                        Button(
+                                            onClick = { showPopup = false },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA450D))
+                                        ) {
+                                            Text("OK")
+                                        }
+                                    }
+                                )
+                            }
 
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(8.dp)
-                                    .background(Color.White, RoundedCornerShape(8.dp))
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .background(Color.White)
+                                    .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // 🔍 Botón de descripción a la izquierda
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Columna izquierda: Nombre y lupa
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
                                     IconButton(
-                                        onClick = { descripcionPlato = descripcion },
+                                        onClick = { showPopup = true },
                                         modifier = Modifier.size(24.dp)
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Search,
-                                            contentDescription = "Ikusi deskribapena",
-                                            tint = Color.Black
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-
-                                    Column {
-                                        Text(
-                                            text = nombrePlato,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = "$precioPlato€",
-                                            fontSize = 14.sp
-                                        )
-                                    }
-                                }
-
-                                // 🔴 Botones de cantidad a la derecha
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Button(
-                                        onClick = { cantidades[nombrePlato] = cantidadActual + 1 },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Green),
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Text("+", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Icon(Icons.Default.Search, "Ver descripción", tint = Color.Gray)
                                     }
 
                                     Text(
-                                        text = cantidadActual.toString(),
-                                        color = Color.Black,
+                                        text = nombre,
                                         fontSize = 16.sp,
-                                        modifier = Modifier.padding(horizontal = 8.dp)
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                // Columna derecha: Precio y botones
+                                Column(
+                                    horizontalAlignment = Alignment.End
+                                ) {
+                                    Text(
+                                        text = "$precio€",
+                                        fontSize = 14.sp,
+                                        color = Color.Gray
                                     )
 
-                                    Button(
-                                        onClick = {
-                                            if (cantidadActual > 0) {
-                                                cantidades[nombrePlato] = cantidadActual - 1
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                                        modifier = Modifier.size(32.dp)
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Text("-", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        // Botón "+"
+                                        Button(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    try {
+                                                        // --- 1) Obtener ID de la platera ---
+                                                        val platoId = withContext(Dispatchers.IO) {
+                                                            val encodedName = URLEncoder.encode(nombre, "UTF-8").replace("+", "%20")
+                                                            val urlId = "http://10.0.2.2/obtener_id_plato.php?izena=$encodedName"
+                                                            Log.d("BotonMas", "GET → $urlId")
+                                                            val response = OkHttpClient().newCall(
+                                                                Request.Builder().url(urlId).get().build()
+                                                            ).execute()
+                                                            val body = response.body?.string()
+                                                            Log.d("BotonMas", "Resp obtener_id: $body")
+                                                            if (!response.isSuccessful || body.isNullOrEmpty()) {
+                                                                throw IOException("Error HTTP obtener_id ${response.code}")
+                                                            }
+                                                            val json = JSONObject(body)
+                                                            if (!json.optBoolean("success", false)) {
+                                                                throw IOException("JSON error obtener_id: ${json.optString("message")}")
+                                                            }
+                                                            json.getInt("id")
+                                                        }
+
+                                                        Log.d("BotonMas", "ID de platera obtenido: $platoId")
+
+                                                        // --- 2) Llamar a almazena.php para procesar el pedido ---
+                                                        val almacenado = withContext(Dispatchers.IO) {
+                                                            val urlAlma = "http://10.0.2.2/almazena.php?platera_id=$platoId"
+                                                            Log.d("BotonMas", "GET → $urlAlma")
+                                                            val response2 = OkHttpClient().newCall(
+                                                                Request.Builder().url(urlAlma).get().build()
+                                                            ).execute()
+                                                            val body2 = response2.body?.string()
+                                                            Log.d("BotonMas", "Resp almazena: $body2")
+                                                            if (!response2.isSuccessful || body2.isNullOrEmpty()) {
+                                                                throw IOException("Error HTTP almazena ${response2.code}")
+                                                            }
+                                                            val json2 = JSONObject(body2)
+                                                            if (!json2.optBoolean("success", false)) {
+                                                                throw IOException("JSON error almazena: ${json2.optString("message")}")
+                                                            }
+                                                            true
+                                                        }
+
+                                                        // --- 3) Si todo va bien, incrementamos la cantidad en pantalla ---
+                                                        if (almacenado) {
+                                                            Log.d("BotonMas", "Stock actualizado en servidor para platoId=$platoId")
+                                                            cantidades[nombre] = cantidadActual + 1
+                                                        }
+
+                                                    } catch (e: Exception) {
+                                                        // Imprime toda la traza para depurar
+                                                        Log.e("BotonMas", "¡Error en el proceso de +!", e)
+                                                        // (Opcional) Muestra un Snackbar o Toast al usuario
+                                                    }
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Text(text = "+", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        }
+
+
+                                        // Cantidad actual
+                                        Text(
+                                            text = "$cantidadActual",
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+
+                                        // Botón "-"
+                                        Button(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    try {
+                                                        // 1) Obtener el ID de la platera en un hilo de I/O
+                                                        val platoId = withContext(Dispatchers.IO) {
+                                                            val encodedName = URLEncoder.encode(nombre, "UTF-8").replace("+", "%20")
+                                                            val urlId = "http://10.0.2.2/obtener_id_plato.php?izena=$encodedName"
+                                                            Log.d("BotonMenos", "GET → $urlId")
+                                                            val response = OkHttpClient().newCall(
+                                                                Request.Builder().url(urlId).get().build()
+                                                            ).execute()
+                                                            val body = response.body?.string()
+                                                            Log.d("BotonMenos", "Resp obtener_id: $body")
+                                                            if (!response.isSuccessful || body.isNullOrEmpty()) {
+                                                                throw IOException("HTTP obtener_id error ${response.code}")
+                                                            }
+                                                            val json = JSONObject(body)
+                                                            if (!json.optBoolean("success", false)) {
+                                                                throw IOException("JSON error obtener_id: ${json.optString("message")}")
+                                                            }
+                                                            json.getInt("id")
+                                                        }
+
+                                                        Log.d("BotonMenos", "ID de platera obtenido: $platoId")
+
+                                                        // 2) Llamada a almazena2.php para incrementar stock en servidor
+                                                        val rollbackOk = withContext(Dispatchers.IO) {
+                                                            val urlAlma2 = "http://10.0.2.2/almazena2.php?platera_id=$platoId"
+                                                            Log.d("BotonMenos", "GET → $urlAlma2")
+                                                            val response2 = OkHttpClient().newCall(
+                                                                Request.Builder().url(urlAlma2).get().build()
+                                                            ).execute()
+                                                            val body2 = response2.body?.string()
+                                                            Log.d("BotonMenos", "Resp almazena2: $body2")
+                                                            if (!response2.isSuccessful || body2.isNullOrEmpty()) {
+                                                                throw IOException("HTTP almazena2 error ${response2.code}")
+                                                            }
+                                                            val json2 = JSONObject(body2)
+                                                            if (!json2.optBoolean("success", false)) {
+                                                                throw IOException("JSON error almazena2: ${json2.optString("message")}")
+                                                            }
+                                                            true
+                                                        }
+
+                                                        // 3) Si todo fue bien, actualizamos la UI en Main Thread
+                                                        if (rollbackOk) {
+                                                            Log.d("BotonMenos", "Stock incrementado en servidor para platoId=$platoId")
+                                                            withContext(Dispatchers.Main) {
+                                                                // Evitamos bajar de cero
+                                                                val nueva = (cantidades[nombre] ?: 0).coerceAtLeast(1) - 1
+                                                                cantidades[nombre] = nueva
+                                                            }
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        // Ver traza completa en Logcat
+                                                        Log.e("BotonMenos", "¡Error en el proceso de –!", e)
+                                                        // (Opcional) notificar al usuario con un Snackbar o Toast
+                                                    }
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Text(text = "-", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        }
+
                                     }
                                 }
                             }
@@ -1790,65 +1999,75 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                     }
                 }
             }
-        }
 
-        // Diálogo de descripción
-        if (descripcionPlato != null) {
-            AlertDialog(
-                onDismissRequest = { descripcionPlato = null },
-                confirmButton = {
-                    Button(
-                        onClick = { descripcionPlato = null },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA450D))
-                    ) {
-                        Text("Itxi", color = Color.White)
-                    }
-                },
-                title = { Text("Plateraren deskribapena") },
-                text = { Text(descripcionPlato!!) }
-            )
-        }
-
-        // Botones inferiores (Volver y Siguiente)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Button(
-                onClick = { navController.popBackStack() },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
+            // Botones de navegación inferiores
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp, start = 16.dp, end = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
             ) {
-                Text("Atzera", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            }
+                // Botón "Atrás" (inferior izquierda)
+                Button(
+                    onClick = { navController.popBackStack() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Gray),
+                    modifier = Modifier.size(width = 120.dp, height = 48.dp)
+                ) {
+                    Text(
+                        text = "Atzera",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
-            Button(
-                onClick = {
-                    val groupedItems = cantidades.filterValues { it > 0 }.map { (nombre, cantidad) ->
-                        val platoData = platos.find { it["izena"] == nombre }!!
-                        mapOf(
-                            "id" to platoData["id"] as Int,
-                            "nombre" to platoData["izena"] as String,
-                            "cantidad" to cantidad,
-                            "precio" to platoData["prezioa"].toString().toFloat(),
-                            "nota" to "" // Nota inicial vacía
-                        )
-                    }
-                    if (groupedItems.isNotEmpty()) {
-                        navController.navigate("pantallaFactura/${Uri.encode(JSONArray(groupedItems).toString())}/$username/$mesaSeleccionada")
-                    } else {
-                        errorMessage = "Aukeratu plater bat gutxienez"
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513))
-            ) {
-                Text("Jarraitu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                // Botón "Jarraitu" (inferior derecha)
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            if (cantidades.isNotEmpty()) {
+                                val itemsArray = JSONArray().apply {
+                                    cantidades.forEach { (nombre, cantidad) ->
+                                        val plato = platos.firstOrNull { it["izena"] == nombre }
+                                        if (plato != null) {
+                                            put(JSONObject().apply {
+                                                put("platera_id", plato["id"] as Int)
+                                                put("nombre", nombre)
+                                                put("cantidad", cantidad)
+                                                put("precio", (plato["prezioa"] as String).toFloat())
+                                                put("nota", "")
+                                            })
+                                        }
+                                    }
+                                }
+
+                                val encoded = URLEncoder.encode(itemsArray.toString(), "UTF-8").replace("+", "%20")
+                                navController.navigate(
+                                    "pantallaFactura/$encoded/$username/$mesaSeleccionada"
+                                )
+                            } else {
+                                errorMessage = "Debe seleccionar al menos un plato"
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B4513)),
+                    modifier = Modifier.size(width = 120.dp, height = 48.dp)
+                ) {
+                    Text(
+                        text = "Jarraitu",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
             }
         }
     }
 }
+
+
 
 @Composable
 fun PantallaFactura(navController: NavController, selectedItems: List<Map<String, Any>>, username: String, mesaSeleccionada: String) {
@@ -1916,7 +2135,7 @@ fun PantallaFactura(navController: NavController, selectedItems: List<Map<String
                         }
                     }
                     itemsIndexed(mutableSelectedItems.value) { index, plato ->
-                        val id = plato["id"] as Int
+                        val id = plato["platera_id"] as Int
                         val nombre = plato["nombre"] as String
                         val cantidad = plato["cantidad"] as Int
                         val precio = plato["precio"] as Float
@@ -2062,7 +2281,7 @@ fun insertarComandaEnBBDD(
     onResult: (Boolean) -> Unit
 ) {
     val client = OkHttpClient()
-    val url = "http://192.168.115.154/insertar_comanda.php"
+    val url = "http://10.0.2.2/insertar_comanda.php"
 
     val jsonBody = JSONObject().apply {
         put("mesa_id", mesaSeleccionada.toIntOrNull() ?: 0)
@@ -2071,7 +2290,7 @@ fun insertarComandaEnBBDD(
         put("platera_items", JSONArray().apply {
             mutableSelectedItems.forEach { item ->
                 put(JSONObject().apply {
-                    put("platera_id", item["id"] as? Int ?: 0)
+                    put("platera_id", item["platera_id"] as? Int ?: 0)
                     put("izena", item["nombre"] as? String ?: "") // Enviar el nombre del plato como 'izena'
                     put("nota", item["nota"] as? String ?: "")
                     put("cantidad", item["cantidad"] as? Int ?: 1)
@@ -2120,7 +2339,7 @@ fun insertarComandaEnBBDD(
 suspend fun obtenerIdUsuario(username: String): Int? {
     return withContext(Dispatchers.IO) {
         val client = OkHttpClient()
-        val url = "http://192.168.115.154/obtener_id_usuario.php"
+        val url = "http://10.0.2.2/obtener_id_usuario.php"
 
         val jsonBody = JSONObject().apply {
             put("username", username)
