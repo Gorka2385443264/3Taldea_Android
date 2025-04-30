@@ -2,6 +2,8 @@ package com.example.a5_erronka1
 
 import com.example.a5_erronka1.ChatClient // no tocar
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
@@ -43,6 +45,7 @@ import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.util.Base64
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.ui.platform.LocalContext
@@ -56,6 +59,8 @@ import org.json.JSONArray
 import java.io.File
 import java.io.FileOutputStream
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
@@ -65,6 +70,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.navigation.NavController
 import androidx.navigation.NavType
@@ -73,6 +79,7 @@ import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.FileWriter
 import java.io.IOException
 import java.net.URLEncoder
@@ -292,30 +299,41 @@ fun PantallaPrincipal(navController: NavController) {
     }
 }
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantallaChat(izena: String, navController: NavController) {
+    val context = LocalContext.current
     var message by remember { mutableStateOf("") }
-    var chatMessages by remember { mutableStateOf(listOf<String>()) }
-
+    var chatMessages by remember { mutableStateOf(listOf<Pair<String, String>>()) }
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        coroutineScope.launch {
-            ChatClient.connect({ success ->
-                if (success) {
-                    Log.d("MainActivity", "Conexión exitosa al servidor.")
-                    coroutineScope.launch {
-                        ChatClient.listenForMessages { newMessage ->
-                            synchronized(chatMessages) {
-                                chatMessages = chatMessages + newMessage
-                            }
-                        }
-                    }
-                } else {
-                    Log.e("MainActivity", "No se pudo conectar al servidor.")
+    // Selector de imágenes que envía al instante
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            coroutineScope.launch {
+                val protocolo = enviarImagen(context, it, izena)
+                if (protocolo.isNotEmpty()) {
+                    chatMessages = chatMessages + Pair("imagen", protocolo)
                 }
-            }, izena)
+            }
+        }
+    }
+
+    // Conexión y escucha
+    LaunchedEffect(Unit) {
+        ChatClient.connect { success ->
+            if (success) {
+                coroutineScope.launch {
+                    ChatClient.listenForMessages { tipo, contenido ->
+                        chatMessages = chatMessages + Pair(tipo, contenido)
+                    }
+                }
+            } else {
+                Toast.makeText(context, "Conexión fallida", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -323,9 +341,9 @@ fun PantallaChat(izena: String, navController: NavController) {
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .background(Color(0xFFEFEFEF)) // Color de fondo
+            .background(Color(0xFFEFEFEF))
     ) {
-        // Panel de mensajes de chat
+        // Área de mensajes
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -333,91 +351,145 @@ fun PantallaChat(izena: String, navController: NavController) {
                 .background(Color.White)
                 .verticalScroll(rememberScrollState())
         ) {
-            chatMessages.forEach { msg ->
-                val sender = msg.substringBefore(":")
+            chatMessages.forEach { (tipo, contenido) ->
+                if (tipo == "imagen") {
+                    // IMG_FILE:usuario:nombre:base64
+                    val partes = contenido.split(":", limit = 4)
+                    if (partes.size == 4) {
+                        val usuario = partes[1]
+                        val nombreArchivo = partes[2]
+                        val bytes = Base64.decode(partes[3], Base64.NO_WRAP)
+                        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    contentAlignment = if (sender.trim() == izena.trim()) Alignment.CenterEnd else Alignment.CenterStart
-                ) {
-                    Text(
-                        text = msg,
-                        modifier = Modifier
-                            .padding(8.dp)
-                            .background(
-                                color = if (sender.trim() == izena.trim()) Color(0xFFADD8E6) else Color(
-                                    0xFFD3D3D3
-                                ),
-                                shape = RoundedCornerShape(8.dp)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)
+                                .clickable { guardarImagen(context, nombreArchivo, bytes) },
+                            horizontalAlignment = if (usuario == izena) Alignment.End else Alignment.Start
+                        ) {
+                            Text("$usuario ha enviado imagen: $nombreArchivo")
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = nombreArchivo,
+                                modifier = Modifier
+                                    .size(160.dp)
+                                    .clip(RoundedCornerShape(8.dp))
                             )
-                            .padding(10.dp)
-                            .clip(RoundedCornerShape(4.dp)),
-                        color = Color.Black
-                    )
+                        }
+                    }
+                } else {
+                    // Texto cifrado → "usuario: mensaje"
+                    val usuario = contenido.substringBefore(":")
+                    val texto = contenido.substringAfter(":").trim()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(4.dp),
+                        contentAlignment = if (usuario == izena) Alignment.CenterEnd else Alignment.CenterStart
+                    ) {
+                        Column(
+                            horizontalAlignment = if (usuario == izena) Alignment.End else Alignment.Start
+                        ) {
+                            Text(
+                                text = usuario,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.Gray
+                            )
+                            Text(
+                                text = texto,
+                                modifier = Modifier
+                                    .background(
+                                        color = if (usuario == izena) Color(0xFFADD8E6) else Color(0xFFD3D3D3),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(10.dp),
+                                color = Color.Black
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        // Campo de texto para escribir mensajes
+        // Campo de texto
         OutlinedTextField(
             value = message,
             onValueChange = { message = it },
             label = { Text("Escribe un mensaje") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.LightGray),
             singleLine = true,
-            colors = TextFieldDefaults.outlinedTextFieldColors(
-                focusedBorderColor = Color.Blue,
-                unfocusedBorderColor = Color.Gray,
-                cursorColor = Color.Black
-            )
+            modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(Modifier.height(8.dp))
 
-        // Botón para enviar mensajes
-        Button(
-            onClick = {
-                if (message.isNotEmpty()) {
-                    coroutineScope.launch {
-                        val formattedMessage = "$izena: $message"
-                        ChatClient.sendMessage(formattedMessage)
-                        withContext(Dispatchers.Main) {
-                            synchronized(chatMessages) {
-                                chatMessages = chatMessages + formattedMessage
-                            }
-                            message = "" // Limpiar el campo de mensaje
+        // Botones
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Button(
+                onClick = {
+                    if (message.isNotBlank()) {
+                        coroutineScope.launch {
+                            ChatClient.sendText(izena, message)
+                            chatMessages = chatMessages + Pair("texto", "$izena: $message")
+                            message = ""
                         }
                     }
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            colors = ButtonDefaults.buttonColors()
-        ) {
-            Text("Enviar", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Enviar")
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            Button(
+                onClick = { imagePickerLauncher.launch("image/*") },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Enviar imagen")
+            }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(Modifier.height(8.dp))
 
-        // Botón "Atrás"
         Button(
-            onClick = {
-                navController.navigate("pantallaMapa?username=$izena")
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Gray)
+            onClick = { navController.navigate("pantallaMapa?username=$izena") },
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Atrás", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Atrás")
         }
     }
 }
+
+fun guardarImagen(context: Context, nombre: String, bytes: ByteArray) {
+    try {
+        val path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val file = File(path, nombre)
+        FileOutputStream(file).use { it.write(bytes) }
+        Toast.makeText(context, "Imagen guardada en Descargas", Toast.LENGTH_LONG).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "Error al guardar: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
+
+suspend fun enviarImagen(context: Context, uri: Uri, username: String): String =
+    withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val bitmap = BitmapFactory.decodeStream(context.contentResolver.openInputStream(uri))
+            val baos = ByteArrayOutputStream().apply { bitmap.compress(Bitmap.CompressFormat.PNG, 100, this) }
+            val bytes = baos.toByteArray()
+            val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            val filename = "imagen_${System.currentTimeMillis()}.png"
+            val protocolo = "IMG_FILE:$username:$filename:$base64"
+            ChatClient.sendRaw(protocolo)
+            protocolo
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+
+
 
 @Composable
 fun SegundaPantalla(navController: NavController) {
@@ -496,7 +568,7 @@ fun iniciarSesion(email: String, password: String, navController: NavController)
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/login.php"
+            val url = "http://192.168.115.154/login.php"
 
             val formBody = FormBody.Builder()
                 .add("email", email)
@@ -699,7 +771,7 @@ fun PantallaMapa(navController: NavController, username: String) {
 }
 
 fun verificarPermisoTxat(username: String, onResult: (Boolean) -> Unit) {
-    val url = "http://10.0.2.2/verificar_permiso_chat.php?username=$username"
+    val url = "http://192.168.115.154/verificar_permiso_chat.php?username=$username"
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val result = URL(url).readText()
@@ -845,7 +917,7 @@ fun obtenerEstadoMesas(navController: NavController, onMesasRecibidas: (List<Map
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/obtenerMesas.php"
+            val url = "http://192.168.115.154/obtenerMesas.php"
             Log.d("ObtenerEstadoMesas", "Realizando solicitud GET a $url")
             val request = Request.Builder()
                 .url(url)
@@ -1072,7 +1144,7 @@ fun obtenerEskaerasPorMesa(mesaId: Int, callback: (Boolean, List<Map<String, Any
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/obtener_eskaeras.php?mesa_id=$mesaId"
+            val url = "http://192.168.115.154/obtener_eskaeras.php?mesa_id=$mesaId"
 
             val request = Request.Builder().url(url).get().build()
             val response = client.newCall(request).execute()
@@ -1311,7 +1383,7 @@ fun eliminarPlatoDeBBDD(
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/eliminar_plato.php"
+            val url = "http://192.168.115.154/eliminar_plato.php"
             val jsonBody = JSONObject().apply {
                 put("izena", izena)
                 put("eskaeraZenb", eskaeraZenb)
@@ -1363,7 +1435,7 @@ fun PantallaAgregarPlato(
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val client = OkHttpClient()
-                val url = "http://10.0.2.2/menu.php"
+                val url = "http://192.168.115.154/menu.php"
                 val request = Request.Builder().url(url).get().build()
                 val response = client.newCall(request).execute()
                 if (response.isSuccessful) {
@@ -1516,7 +1588,7 @@ fun PantallaAgregarPlato(
                                             CoroutineScope(Dispatchers.IO).launch {
                                                 try {
                                                     val client = OkHttpClient()
-                                                    val url = "http://10.0.2.2/almazena.php?platera_id=$platoId"
+                                                    val url = "http://192.168.115.154/almazena.php?platera_id=$platoId"
                                                     Log.d("HTTP_Request", "URL: $url") // Registro de la URL
                                                     val request = Request.Builder().url(url).get().build()
                                                     val response = client.newCall(request).execute()
@@ -1603,7 +1675,7 @@ fun insertarPlatoEnEskaera(
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/insertar_plato.php"
+            val url = "http://192.168.115.154/insertar_plato.php"
             val jsonBody = JSONObject().apply {
                 put("mesa_id", mesaId)
                 put("eskaeraZenb", eskaeraZenb)
@@ -1642,7 +1714,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
             withContext(Dispatchers.IO) {
                 Log.d("PantallaMenu", "Iniciando carga de datos desde el servidor")
                 val client = OkHttpClient()
-                val url = "http://10.0.2.2/menu.php"
+                val url = "http://192.168.115.154/menu.php"
                 val request = Request.Builder().url(url).get().build()
                 val response = client.newCall(request).execute()
                 val responseBody = response.body?.string()
@@ -1859,7 +1931,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                                         // --- 1) Obtener ID de la platera ---
                                                         val platoId = withContext(Dispatchers.IO) {
                                                             val encodedName = URLEncoder.encode(nombre, "UTF-8").replace("+", "%20")
-                                                            val urlId = "http://10.0.2.2/obtener_id_plato.php?izena=$encodedName"
+                                                            val urlId = "http://192.168.115.154/obtener_id_plato.php?izena=$encodedName"
                                                             Log.d("BotonMas", "GET → $urlId")
                                                             val response = OkHttpClient().newCall(
                                                                 Request.Builder().url(urlId).get().build()
@@ -1880,7 +1952,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
 
                                                         // --- 2) Llamar a almazena.php para procesar el pedido ---
                                                         val almacenado = withContext(Dispatchers.IO) {
-                                                            val urlAlma = "http://10.0.2.2/almazena.php?platera_id=$platoId"
+                                                            val urlAlma = "http://192.168.115.154/almazena.php?platera_id=$platoId"
                                                             Log.d("BotonMas", "GET → $urlAlma")
                                                             val response2 = OkHttpClient().newCall(
                                                                 Request.Builder().url(urlAlma).get().build()
@@ -1932,7 +2004,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                                         // 1) Obtener el ID de la platera en un hilo de I/O
                                                         val platoId = withContext(Dispatchers.IO) {
                                                             val encodedName = URLEncoder.encode(nombre, "UTF-8").replace("+", "%20")
-                                                            val urlId = "http://10.0.2.2/obtener_id_plato.php?izena=$encodedName"
+                                                            val urlId = "http://192.168.115.154/obtener_id_plato.php?izena=$encodedName"
                                                             Log.d("BotonMenos", "GET → $urlId")
                                                             val response = OkHttpClient().newCall(
                                                                 Request.Builder().url(urlId).get().build()
@@ -1953,7 +2025,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
 
                                                         // 2) Llamada a almazena2.php para incrementar stock en servidor
                                                         val rollbackOk = withContext(Dispatchers.IO) {
-                                                            val urlAlma2 = "http://10.0.2.2/almazena2.php?platera_id=$platoId"
+                                                            val urlAlma2 = "http://192.168.115.154/almazena2.php?platera_id=$platoId"
                                                             Log.d("BotonMenos", "GET → $urlAlma2")
                                                             val response2 = OkHttpClient().newCall(
                                                                 Request.Builder().url(urlAlma2).get().build()
@@ -2281,7 +2353,7 @@ fun insertarComandaEnBBDD(
     onResult: (Boolean) -> Unit
 ) {
     val client = OkHttpClient()
-    val url = "http://10.0.2.2/insertar_comanda.php"
+    val url = "http://192.168.115.154/insertar_comanda.php"
 
     val jsonBody = JSONObject().apply {
         put("mesa_id", mesaSeleccionada.toIntOrNull() ?: 0)
@@ -2339,7 +2411,7 @@ fun insertarComandaEnBBDD(
 suspend fun obtenerIdUsuario(username: String): Int? {
     return withContext(Dispatchers.IO) {
         val client = OkHttpClient()
-        val url = "http://10.0.2.2/obtener_id_usuario.php"
+        val url = "http://192.168.115.154/obtener_id_usuario.php"
 
         val jsonBody = JSONObject().apply {
             put("username", username)
