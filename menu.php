@@ -2,7 +2,7 @@
 header('Content-Type: application/json');
 
 $host = "localhost:3306";
-$dbname = "3taldea"; 
+$dbname = "3taldea";
 $username = 'root';
 $password = '1WMG2023';
 
@@ -15,7 +15,7 @@ if ($conn->connect_error) {
 // Consulta SQL ajustada: solo columnas existentes en la tabla platera
 $sql = "SELECT id, izena, deskribapena, kategoria, prezioa, menu, deletedBy
         FROM platera
-        WHERE menu = 1 AND deletedBy = 0
+        WHERE menu = 1
         ORDER BY 
             CASE kategoria
                 WHEN 'Edaria' THEN 1
