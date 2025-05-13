@@ -568,7 +568,7 @@ fun iniciarSesion(email: String, password: String, navController: NavController)
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/login.php"
+            val url = "http://192.168.115.154/login.php"
 
             val formBody = FormBody.Builder()
                 .add("email", email)
@@ -771,7 +771,7 @@ fun PantallaMapa(navController: NavController, username: String) {
 }
 
 fun verificarPermisoTxat(username: String, onResult: (Boolean) -> Unit) {
-    val url = "http://10.0.2.2/verificar_permiso_chat.php?username=$username"
+    val url = "http://192.168.115.154/verificar_permiso_chat.php?username=$username"
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val result = URL(url).readText()
@@ -917,7 +917,7 @@ fun obtenerEstadoMesas(navController: NavController, onMesasRecibidas: (List<Map
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/obtenerMesas.php"
+            val url = "http://192.168.115.154/obtenerMesas.php"
             Log.d("ObtenerEstadoMesas", "Realizando solicitud GET a $url")
             val request = Request.Builder()
                 .url(url)
@@ -1144,7 +1144,7 @@ fun obtenerEskaerasPorMesa(mesaId: Int, callback: (Boolean, List<Map<String, Any
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/obtener_eskaeras.php?mesa_id=$mesaId"
+            val url = "http://192.168.115.154/obtener_eskaeras.php?mesa_id=$mesaId"
 
             val request = Request.Builder().url(url).get().build()
             val response = client.newCall(request).execute()
@@ -1383,7 +1383,7 @@ fun eliminarPlatoDeBBDD(
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/eliminar_plato.php"
+            val url = "http://192.168.115.154/eliminar_plato.php"
             val jsonBody = JSONObject().apply {
                 put("izena", izena)
                 put("eskaeraZenb", eskaeraZenb)
@@ -1435,7 +1435,7 @@ fun PantallaAgregarPlato(
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val client = OkHttpClient()
-                val url = "http://10.0.2.2/menu.php"
+                val url = "http://192.168.115.154/menu.php"
                 val request = Request.Builder().url(url).get().build()
                 val response = client.newCall(request).execute()
                 if (response.isSuccessful) {
@@ -1588,7 +1588,7 @@ fun PantallaAgregarPlato(
                                             CoroutineScope(Dispatchers.IO).launch {
                                                 try {
                                                     val client = OkHttpClient()
-                                                    val url = "http://10.0.2.2/almazena.php?platera_id=$platoId"
+                                                    val url = "http://192.168.115.154/almazena.php?platera_id=$platoId"
                                                     Log.d("HTTP_Request", "URL: $url") // Registro de la URL
                                                     val request = Request.Builder().url(url).get().build()
                                                     val response = client.newCall(request).execute()
@@ -1675,7 +1675,7 @@ fun insertarPlatoEnEskaera(
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val client = OkHttpClient()
-            val url = "http://10.0.2.2/insertar_plato.php"
+            val url = "http://192.168.115.154/insertar_plato.php"
             val jsonBody = JSONObject().apply {
                 put("mesa_id", mesaId)
                 put("eskaeraZenb", eskaeraZenb)
@@ -1714,7 +1714,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
             withContext(Dispatchers.IO) {
                 Log.d("PantallaMenu", "Iniciando carga de datos desde el servidor")
                 val client = OkHttpClient()
-                val url = "http://10.0.2.2/menu.php"
+                val url = "http://192.168.115.154/menu.php"
                 val request = Request.Builder().url(url).get().build()
                 val response = client.newCall(request).execute()
                 val responseBody = response.body?.string()
@@ -1931,7 +1931,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                                         // --- 1) Obtener ID de la platera ---
                                                         val platoId = withContext(Dispatchers.IO) {
                                                             val encodedName = URLEncoder.encode(nombre, "UTF-8").replace("+", "%20")
-                                                            val urlId = "http://10.0.2.2/obtener_id_plato.php?izena=$encodedName"
+                                                            val urlId = "http://192.168.115.154/obtener_id_plato.php?izena=$encodedName"
                                                             Log.d("BotonMas", "GET → $urlId")
                                                             val response = OkHttpClient().newCall(
                                                                 Request.Builder().url(urlId).get().build()
@@ -1952,7 +1952,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
 
                                                         // --- 2) Llamar a almazena.php para procesar el pedido ---
                                                         val almacenado = withContext(Dispatchers.IO) {
-                                                            val urlAlma = "http://10.0.2.2/almazena.php?platera_id=$platoId"
+                                                            val urlAlma = "http://192.168.115.154/almazena.php?platera_id=$platoId"
                                                             Log.d("BotonMas", "GET → $urlAlma")
                                                             val response2 = OkHttpClient().newCall(
                                                                 Request.Builder().url(urlAlma).get().build()
@@ -2004,7 +2004,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
                                                         // 1) Obtener el ID de la platera en un hilo de I/O
                                                         val platoId = withContext(Dispatchers.IO) {
                                                             val encodedName = URLEncoder.encode(nombre, "UTF-8").replace("+", "%20")
-                                                            val urlId = "http://10.0.2.2/obtener_id_plato.php?izena=$encodedName"
+                                                            val urlId = "http://192.168.115.154/obtener_id_plato.php?izena=$encodedName"
                                                             Log.d("BotonMenos", "GET → $urlId")
                                                             val response = OkHttpClient().newCall(
                                                                 Request.Builder().url(urlId).get().build()
@@ -2025,7 +2025,7 @@ fun PantallaMenu(navController: NavController, username: String, mesaSeleccionad
 
                                                         // 2) Llamada a almazena2.php para incrementar stock en servidor
                                                         val rollbackOk = withContext(Dispatchers.IO) {
-                                                            val urlAlma2 = "http://10.0.2.2/almazena2.php?platera_id=$platoId"
+                                                            val urlAlma2 = "http://192.168.115.154/almazena2.php?platera_id=$platoId"
                                                             Log.d("BotonMenos", "GET → $urlAlma2")
                                                             val response2 = OkHttpClient().newCall(
                                                                 Request.Builder().url(urlAlma2).get().build()
@@ -2353,7 +2353,7 @@ fun insertarComandaEnBBDD(
     onResult: (Boolean) -> Unit
 ) {
     val client = OkHttpClient()
-    val url = "http://10.0.2.2/insertar_comanda.php"
+    val url = "http://192.168.115.154/insertar_comanda.php"
 
     val jsonBody = JSONObject().apply {
         put("mesa_id", mesaSeleccionada.toIntOrNull() ?: 0)
@@ -2411,7 +2411,7 @@ fun insertarComandaEnBBDD(
 suspend fun obtenerIdUsuario(username: String): Int? {
     return withContext(Dispatchers.IO) {
         val client = OkHttpClient()
-        val url = "http://10.0.2.2/obtener_id_usuario.php"
+        val url = "http://192.168.115.154/obtener_id_usuario.php"
 
         val jsonBody = JSONObject().apply {
             put("username", username)
